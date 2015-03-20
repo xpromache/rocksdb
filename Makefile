@@ -736,7 +736,7 @@ rocksdbjavastaticpublish: rocksdbjavastaticrelease
 	mvn gpg:sign-and-deploy-file -Durl=https://oss.sonatype.org/service/local/staging/deploy/maven2/ -DrepositoryId=sonatype-nexus-staging -DpomFile=java/rocksjni.pom -Dfile=java/target/rocksdbjni-$(ROCKSDB_MAJOR).$(ROCKSDB_MINOR).$(ROCKSDB_PATCH).jar
 
 rocksdbjava:
-	OPT="-fPIC -DNDEBUG -O2" $(MAKE) $(LIBRARY) -j32
+	OPT="-fPIC -DNDEBUG -O2" $(MAKE) $(LIBRARY) -j2
 	cd java;$(MAKE) javalib;
 	rm -f ./java/target/$(ROCKSDBJNILIB)
 	$(CXX) $(CXXFLAGS) -I./java/. $(JAVA_INCLUDE) -shared -fPIC -o ./java/target/$(ROCKSDBJNILIB) $(JNI_NATIVE_SOURCES) $(LIBOBJECTS) $(JAVA_LDFLAGS) $(COVERAGEFLAGS)
