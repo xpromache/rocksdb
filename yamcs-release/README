@@ -1,0 +1,13 @@
+To release a new version of the rocksdb-yamcs:
+
+
+- checkout the tag corresponding to the version of RocksDB from the facebook repo into a new branch
+  git checkout tags/v4.9.0 -b v4.9.0-yamcs
+- cherry-pick the Yamcs modifications from the main-yamcs branch
+- push the code to github; this should trigger the actions to build the code for several architectures
+- download the resulting artifact rocksdbjni-jar. Note that there are some other artifacts for the individual platform builds, those are included in the rockdbjni-jar and not required.
+- Unzip the rocksdbjni-jar.zip in the build directory (yamcs-release/build):
+  unzip rocksdbjni-jar.zip -d build
+- change the versio number in pom.xml; We use the rocksdb numbers with an added fourth number for our release. For example 4.9.0.n where 4.9.0 is the RocksDB release and n is the Yamcs release number starting from 0.
+- run mvn -P yamcs-release deploy. The yamcs-release profile is required to use the yamcs key for signing the jar.
+- connect to nexus oss.sonatype.org and release the jar from staging.:

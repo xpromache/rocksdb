@@ -1,0 +1,30 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
+  <id>rocksdbjni-yamcs</id>
+
+  <formats>
+    <format>jar</format>
+  </formats>
+  <includeBaseDirectory>false</includeBaseDirectory>
+  <fileSets>
+    <fileSet>
+      <directory>build/classes</directory>
+      <outputDirectory>/</outputDirectory>
+      <includes>
+        <include>**/*.class</include>
+      </includes>
+    </fileSet>
+    <fileSet>
+      <directory>build</directory>
+      <outputDirectory>/</outputDirectory>
+      <includes>
+        <include>librocksdbjni-linux64.so</include>
+        <include>librocksdbjni-linux-aarch64.so</include>
+        <include>librocksdbjni-osx-arm64.jnilib</include>
+        <include>librocksdbjni-osx-x86_64.jnilib</include>
+        <include>librocksdbjni-win64.dll</include>
+      </includes>
+    </fileSet>
+  </fileSets>
+</assembly>
