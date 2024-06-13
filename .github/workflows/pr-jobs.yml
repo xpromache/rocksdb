@@ -449,7 +449,7 @@ jobs:
   # ======================== Windows with Tests ======================= #
   # NOTE: some windows jobs are in "nightly" to save resources
   build-windows-vs2019:
-    if: ${{ github.repository_owner == 'facebook' }}
+  #  if: ${{ github.repository_owner == 'facebook' }}
     runs-on: windows-2019
     env:
       CMAKE_GENERATOR: Visual Studio 16 2019
@@ -488,8 +488,7 @@ jobs:
     # NOTE: post-steps skipped because of compatibility issues with docker image
   build-linux-java-static:
     if: ${{ github.repository_owner == 'facebook' }}
-    runs-on:
-      labels: 4-core-ubuntu
+    runs-on: ubuntu-latest
     container:
       image: evolvedbinary/rocksjava:centos6_x64-be
       options: --shm-size=16gb
@@ -515,7 +514,7 @@ jobs:
       run: scl enable devtoolset-7 'make V=1 J=8 -j8 rocksdbjavastatic'
     # NOTE: post-steps skipped because of compatibility issues with docker image
   build-macos-java:
-    if: ${{ github.repository_owner == 'facebook' }}
+   # if: ${{ github.repository_owner == 'facebook' }}
     runs-on: macos-13
     env:
       JAVA_HOME: "/Library/Java/JavaVirtualMachines/liberica-jdk-8.jdk/Contents/Home"
@@ -538,7 +537,7 @@ jobs:
       run: make V=1 J=16 -j16 jtest
     - uses: "./.github/actions/post-steps"
   build-macos-java-static:
-    if: ${{ github.repository_owner == 'facebook' }}
+   # if: ${{ github.repository_owner == 'facebook' }}
     runs-on: macos-13
     env:
       JAVA_HOME: "/Library/Java/JavaVirtualMachines/liberica-jdk-8.jdk/Contents/Home"
