@@ -8,31 +8,9 @@ inputs:
 runs:
   using: composite
   steps:
-  - name: Upload Test Results artifact
-    uses: actions/upload-artifact@v4.0.0
-    with:
-      name: "${{ inputs.artifact-prefix }}-test-results"
-      path: "${{ runner.temp }}/test-results/**"
-  - name: Upload DB LOG file artifact
-    uses: actions/upload-artifact@v4.0.0
-    with:
-      name: "${{ inputs.artifact-prefix }}-db-log-file"
-      path: LOG
-  - name: Copy Test Logs (on Failure)
-    if: ${{ failure() }}
-    run: |
-      mkdir -p ${{ runner.temp }}/failure-test-logs
-      cp -r t/* ${{ runner.temp }}/failure-test-logs
-    shell: bash
-  - name: Upload Test Logs (on Failure) artifact
-    uses: actions/upload-artifact@v4.0.0
-    with:
-      name: "${{ inputs.artifact-prefix }}-failure-test-logs"
-      path: ${{ runner.temp }}/failure-test-logs/**
-      if-no-files-found: ignore
-  - name: Upload Core Dumps artifact
+  - name: java files
     uses: actions/upload-artifact@v4.0.0
     with:
       name: "${{ inputs.artifact-prefix }}-core-dumps"
-      path: "core.*"
+      path: "${{ runner.temp }}/java/target/**"
       if-no-files-found: ignore
