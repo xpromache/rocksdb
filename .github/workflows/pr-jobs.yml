@@ -62,6 +62,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4.1.0
     - uses: "./.github/actions/windows-build-steps"
+    - name: java files
+      uses: actions/upload-artifact@v4.0.0
+      with:
+         name: "${{ inputs.artifact-prefix }}-java-files"
+         path: "java/target/**"
+         if-no-files-found: ignore
   # ============================ Java Jobs ============================ #
   build-linux-java-static:
     if: ${{ github.repository_owner == 'facebook' }}
