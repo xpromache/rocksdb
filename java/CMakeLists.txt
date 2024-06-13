@@ -99,6 +99,7 @@ set(JNI_NATIVE_SOURCES
         rocksjni/write_batch_with_index.cc
         rocksjni/write_buffer_manager.cc
         rocksjni/writebatchhandlerjnicallback.cc
+        rocksjni/yamcs_parchive_merge_operator.cc
 )
 
 set(JAVA_MAIN_CLASSES
@@ -308,6 +309,7 @@ set(JAVA_MAIN_CLASSES
   src/test/java/org/rocksdb/test/TestableEventListener.java
   src/test/java/org/rocksdb/util/CapturingWriteBatchHandler.java
   src/test/java/org/rocksdb/util/WriteBatchGetter.java
+  src/main/java/org/rocksdb/YamcsParchiveMergeOperator.java
 )
 
 set(JAVA_TEST_CLASSES
@@ -774,6 +776,7 @@ if(${CMAKE_VERSION} VERSION_LESS "3.11.4")
           org.rocksdb.WriteBatchTest
           org.rocksdb.WriteBatchTestInternalHelper
           org.rocksdb.WriteBufferManager
+          org.rocksdb.YamcsParchiveMergeOperator
           org.rocksdb.test.TestableEventListener
   )
 
