@@ -66,7 +66,7 @@ jobs:
       uses: actions/upload-artifact@v4.0.0
       with:
          name: "${{ inputs.artifact-prefix }}-java-files"
-         path: "D:/a/rocksdb/rocksdb/build/**"
+         path: "D:/a/rocksdb/rocksdb/build/java/**"
          if-no-files-found: ignore
   # ============================ Java Jobs ============================ #
   build-linux-java-static:
