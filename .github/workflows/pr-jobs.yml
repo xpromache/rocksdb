@@ -1,60 +1,9 @@
 name: facebook/rocksdb/pr-jobs
 on: [push, pull_request]
 jobs:
-  # NOTE: multiple workflows would be recommended, but the current GHA UI in
-  # PRs doesn't make it clear when there's an overall error with a workflow,
-  # making it easy to overlook something broken. Grouping everything into one
-  # workflow minimizes the problem because it will be suspicious if there are
-  # no GHA results.
-  #
-  # The if: ${{ github.repository_owner == 'facebook' }} lines prevent the
-  # jobs from attempting to run on repo forks, because of a few problems:
-  # * runs-on labels are repository (owner) specific, so the job might wait
-  # for days waiting for a runner that simply isn't available.
-  # * Pushes to branches on forks for pull requests (the normal process) would
-  # run the workflow jobs twice: once in the pull-from fork and once for the PR
-  # destination repo. This is wasteful and dumb.
-  # * It is not known how to avoid copy-pasting the line to each job,
-  # increasing the risk of misconfiguration, especially on forks that might
-  # want to run with this GHA setup.
-  #
-  # DEBUGGING WITH SSH: Temporarily add this as a job step, either before the
-  # step of interest without the "if:" line or after the failing step with the
-  # "if:" line. Then use ssh command printed in CI output.
-  #  - name: Setup tmate session # TEMPORARY!
-  #    if: ${{ failure() }}
-  #    uses: mxschmitt/action-tmate@v3
-  #    with:
-  #      limit-access-to-actor: true
-
-  # ======================== Fast Initial Checks ====================== #
-  check-format-and-targets:
-    if: ${{ github.repository_owner == 'facebook' }}
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4.1.0
-      with:
-        fetch-depth: 0 # Need full checkout to determine merge base
-        fetch-tags: true
-    - uses: "./.github/actions/setup-upstream"
-    - name: Setup Python
-      uses: actions/setup-python@v5
-    - name: Install Dependencies
-      run: python -m pip install --upgrade pip
-    - name: Install argparse
-      run: pip install argparse
-    - name: Download clang-format-diff.py
-      run: wget https://raw.githubusercontent.com/llvm/llvm-project/release/12.x/clang/tools/clang-format/clang-format-diff.py
-    - name: Check format
-      run: VERBOSE_CHECK=1 make check-format
-    - name: Compare buckify output
-      run: make check-buck-targets
-    - name: Simple source code checks
-      run: make check-sources
-  # ======================== Windows with Tests ======================= #
-  # NOTE: some windows jobs are in "nightly" to save resources
+  # ======================== Windows ======================= #
   build-windows-vs2019:
-  #  if: ${{ github.repository_owner == 'facebook' }}
+  #  if: false
     runs-on: windows-2019
     env:
       CMAKE_GENERATOR: Visual Studio 16 2019
@@ -65,8 +14,8 @@ jobs:
     - name: java files
       uses: actions/upload-artifact@v4.0.0
       with:
-         name: "${{ inputs.artifact-prefix }}-java-files"
-         path: "D:/a/rocksdb/rocksdb/build/java/**"
+         name: "win64-java-files"
+         path: "D:/a/rocksdb/rocksdb/build/java/Release/**"
          if-no-files-found: ignore
   # ============================ Java Jobs ============================ #
   build-linux-java-static:
@@ -98,7 +47,7 @@ jobs:
     - uses: "./.github/actions/post-steps"
   build-linux-arm:
     if: false
-    runs-on: ubuntu-arm #this does not seem supported on github as of 14-June-2024
+    runs-on: ubuntu-arm #not supported on github as of 14-June-2024
     steps:
         - uses: actions/checkout@v4.1.0
         - uses: "./.github/actions/pre-steps"

@@ -11,9 +11,9 @@ runs:
       CMAKE_BIN: C:/Program Files/CMake/bin/cmake.exe
       CTEST_BIN: C:/Program Files/CMake/bin/ctest.exe
       JAVA_HOME: C:/Program Files/BellSoft/LibericaJDK-8
-      SNAPPY_HOME: ${{ github.workspace }}/thirdparty/snappy-1.1.8
-      SNAPPY_INCLUDE: ${{ github.workspace }}/thirdparty/snappy-1.1.8;${{ github.workspace }}/thirdparty/snappy-1.1.8/build
-      SNAPPY_LIB_RELEASE: ${{ github.workspace }}/thirdparty/snappy-1.1.8/build/Release/snappy.lib
+      SNAPPY_HOME: ${{ github.workspace }}/thirdparty/snappy-1.1.10
+      SNAPPY_INCLUDE: ${{ github.workspace }}/thirdparty/snappy-1.1.10;${{ github.workspace }}/thirdparty/snappy-1.1.10/build
+      SNAPPY_LIB_RELEASE: ${{ github.workspace }}/thirdparty/snappy-1.1.10/build/Release/snappy.lib
     run: |-
       # NOTE: if ... Exit $LASTEXITCODE lines needed to exit and report failure
       echo ===================== Install Dependencies =====================
