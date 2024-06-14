@@ -327,6 +327,10 @@ LIB_SOURCES =                                                   \
   utilities/wal_filter.cc                                       \
   utilities/write_batch_with_index/write_batch_with_index.cc    \
   utilities/write_batch_with_index/write_batch_with_index_internal.cc    \
+  utilities/yamcs/var_int_util.cc                         \
+  utilities/yamcs/int_value_segment.cc                         \
+  utilities/yamcs/long_value_segment.cc                         \
+  utilities/yamcs/merge_operator.cc                         \
 
 ifeq (,$(shell $(CXX) -fsyntax-only -maltivec -xc /dev/null 2>&1))
 LIB_SOURCES_ASM =\
