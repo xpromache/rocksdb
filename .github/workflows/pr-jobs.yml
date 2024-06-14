@@ -70,7 +70,7 @@ jobs:
          if-no-files-found: ignore
   # ============================ Java Jobs ============================ #
   build-linux-java-static:
-    if: ${{ github.repository_owner == 'facebook' }}
+    if: false
     runs-on: ubuntu-latest
     container:
       image: evolvedbinary/rocksjava:centos6_x64-be
@@ -96,8 +96,18 @@ jobs:
     - name: Build RocksDBJava Static Library
       run: scl enable devtoolset-7 'make V=1 J=8 -j8 rocksdbjavastatic'
     - uses: "./.github/actions/post-steps"
+  build-linux-arm:
+    if: false
+    runs-on: ubuntu-arm #this does not seem supported on github as of 14-June-2024
+    steps:
+        - uses: actions/checkout@v4.1.0
+        - uses: "./.github/actions/pre-steps"
+        - run: sudo apt-get update && sudo apt-get install -y build-essential
+        - run: ROCKSDBTESTS_PLATFORM_DEPENDENT=only make V=1 J=4 -j4 all_but_some_tests check_some
+        - uses: "./.github/actions/post-steps"
+
   build-macos-java-static:
-   # if: ${{ github.repository_owner == 'facebook' }}
+    if: false
     runs-on: macos-13
     env:
       JAVA_HOME: "/Library/Java/JavaVirtualMachines/liberica-jdk-8.jdk/Contents/Home"
@@ -119,7 +129,7 @@ jobs:
       run: make V=1 J=16 -j16 rocksdbjavastaticosx
     - uses: "./.github/actions/post-steps"
   build-macos-java-static-universal:
-    if: ${{ github.repository_owner == 'facebook' }}
+    if: false
     runs-on: macos-13
     env:
       JAVA_HOME: "/Library/Java/JavaVirtualMachines/liberica-jdk-8.jdk/Contents/Home"
@@ -140,13 +150,3 @@ jobs:
     - name: Build RocksDBJava Universal Binary Static Library
       run: make V=1 J=16 -j16 rocksdbjavastaticosx_ub
     - uses: "./.github/actions/post-steps"
-  build-linux-arm:
-    if: ${{ github.repository_owner == 'facebook' }}
-    runs-on:
-      labels: 4-core-ubuntu-arm
-    steps:
-      - uses: actions/checkout@v4.1.0
-      - uses: "./.github/actions/pre-steps"
-      - run: sudo apt-get update && sudo apt-get install -y build-essential
-      - run: ROCKSDBTESTS_PLATFORM_DEPENDENT=only make V=1 J=4 -j4 all_but_some_tests check_some
-      - uses: "./.github/actions/post-steps"

@@ -29,7 +29,7 @@ runs:
       cd snappy-1.1.10
       mkdir build
       cd build
-      & cmake -G "$Env:CMAKE_GENERATOR" ..
+      & cmake -G "$Env:CMAKE_GENERATOR" -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF ..
       if(!$?) { Exit $LASTEXITCODE }
       msbuild Snappy.sln -maxCpuCount -property:Configuration=Release -property:Platform=x64
       if(!$?) { Exit $LASTEXITCODE }
