@@ -2,39 +2,36 @@
 
 #include <vector>
 #include <cstdint>
-#include <stdexcept>
 #include <rocksdb/slice.h>
+#include <rocksdb/status.h>
 
+#include "value_segment.h"
 
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
 
-class LongValueSegment  {
+class LongValueSegment : public ValueSegment {
 public:
     enum Type {
         UINT64,
         SINT64,
         TIMESTAMP,
-        
     };
     static const int SUBFORMAT_ID_RAW = 0;
 
     LongValueSegment(Type type);
-    void writeTo(rocksdb::Slice& slice);
+    void WriteTo(std::string& slice);
     int getMaxSerializedSize();
+    rocksdb::Status MergeFrom(const rocksdb::Slice& slice, size_t& pos);
     
-    static LongValueSegment parseFrom(rocksdb::Slice& slice);
-
 private:
     LongValueSegment();
-    void writeHeader(int subFormatId, rocksdb::Slice& slice);
-    void parse(rocksdb::Slice& slice);
-    void parseRaw(rocksdb::Slice& slice, int n);
+    void writeHeader(int subFormatId, std::string& slice);
+    void parseRaw(const rocksdb::Slice& slice, int n);
     int getNumericType(Type type);
 
     std::vector<int64_t> values;
     int numericType; // index in the array
-    static const Type types[];
 };
 
 } // namespace yamcs

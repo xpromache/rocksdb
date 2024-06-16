@@ -1,127 +1,171 @@
 #include "int_value_segment.h"
-#include "var_int_util.h"
 
 #include <rocksdb/slice.h>
+
+#include "fastpfor/fastpfor.h"
+#include "util.h"
 
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
 
-IntValueSegment::IntValueSegment(bool signedVal) : is_signed(signedVal) {}
+static thread_local FastPForLib::FastPFor<4> fastpfor128;
+static thread_local std::vector<uint32_t> xc;
 
-IntValueSegment::IntValueSegment() : is_signed(false) {}
+bool get_signed(uint8_t x) { return (((x >> 4) & 1) == 1); }
 
-void IntValueSegment::writeTo(std::string &slice) {
-  const char *start = slice.data();
-  try {
-    writeCompressed(slice);
-  } catch (const std::overflow_error &e) {
-    slice.clear();
-    writeRaw(slice);
-  }
+IntValueSegment::IntValueSegment(const Slice &slice, size_t &pos)
+    : is_signed(get_signed(slice.data()[pos])) {
+  MergeFrom(slice, pos);
 }
 
-void IntValueSegment::writeCompressed(std::string &slice) {
-  auto ddz = encodeDeltaDeltaZigZag(values);
+void IntValueSegment::WriteTo(std::string &buf) {
+  size_t buf_pos = buf.size();
+  writeCompressed(buf);
+  if (buf.size() > buf_pos + values.size() * 4) {
+    buf.resize(buf_pos);
+    writeRaw(buf);
+  }
+}
+void IntValueSegment::writeCompressed(std::string &buf) {
+  std::vector<uint32_t> ddz = encodeDeltaDeltaZigZag(values);
+  xc.resize(3 * ddz.size()/2);
 
-  FastPFOR128 *fastpfor = FastPFOR128::get();
-  int size = ddz.size();
+  size_t compressed_in_size =
+      ddz.size() / fastpfor128.BlockSize * fastpfor128.BlockSize;
 
-  IntWrapper inputOffset(0);
-  IntWrapper outputOffset(0);
-  std::vector<int> xc(size);
+  size_t compressed_out_size = 2 * ddz.size();
 
-  fastpfor->compress(ddz.data(), inputOffset, size, xc.data(), outputOffset);
-  if (outputOffset.get() == 0) {
-    writeHeader(SUBFORMAT_ID_DELTAZG_VB, slice);
-  } else {
-    writeHeader(SUBFORMAT_ID_DELTAZG_FPF128_VB, slice);
-    int length = outputOffset.get();
-    for (int i = 0; i < length; i++) {
-      slice.data()[slice.size()] = xc[i];
+  if (compressed_in_size > 0) {
+    fastpfor128.encodeArray(ddz.data(), ddz.size(), xc.data(),
+                            compressed_out_size);
+    if (compressed_out_size < ddz.size()) {
+      writeHeader(SUBFORMAT_ID_DELTAZG_FPF128_VB, buf);
     }
   }
 
-  for (int i = inputOffset.get(); i < size; i++) {
-    writeVarInt32(slice, ddz[i]);
+  if (compressed_in_size == 0 || compressed_out_size >= xc.size()) {
+    // no compression could be done (too few data points)
+    // or compression resulted in data larger than the original
+    writeHeader(SUBFORMAT_ID_DELTAZG_VB, buf);
+    compressed_in_size = 0;
+    compressed_out_size = 0;
+  }
+  for (size_t i = 0; i < compressed_out_size; i++) {
+    write_u32_be(buf, xc[i]);
+  }
+
+  for (size_t i = compressed_in_size; i < ddz.size(); i++) {
+    writeVarInt32(buf, ddz[i]);
   }
 }
 
-void IntValueSegment::writeRaw(std::string &slice) {
-  writeHeader(SUBFORMAT_ID_RAW, slice);
+void IntValueSegment::writeRaw(std::string &buf) {
+  writeHeader(SUBFORMAT_ID_RAW, buf);
   int n = values.size();
   for (int i = 0; i < n; i++) {
-    slice.data()[slice.size()] = values[i];
+    write_u32_be(buf, values[i]);
   }
 }
 
-void IntValueSegment::writeHeader(int subFormatId, std::string &slice) {
-  int x = signedValue ? 1 : 0;
+void IntValueSegment::writeHeader(int subFormatId, std::string &buf) {
+  int x = is_signed ? 1 : 0;
   x = (x << 4) | subFormatId;
-  slice.data()[slice.size()] = static_cast<uint8_t>(x);
-  writeVarInt32(slice, values.size());
+  buf.push_back(static_cast<uint8_t>(x));
+  writeVarInt32(buf, values.size());
 }
 
-IntValueSegment IntValueSegment::parseFrom(rocksdb::Slice &slice) {
-  IntValueSegment r;
-  r.parse(slice);
-  return r;
-}
-
-void IntValueSegment::parse(rocksdb::Slice &slice) {
-  uint8_t x = slice.data()[0];
+void IntValueSegment::MergeFrom(const rocksdb::Slice &slice,
+                                           size_t &pos) {
+  uint8_t x = slice.data()[pos++];
   int subFormatId = x & 0xF;
-  signedValue = (((x >> 4) & 1) == 1);
-  int n = VarIntUtil::readVarInt32(slice);
+  if (is_signed != get_signed(x)) {
+    if (is_signed) {
+      status = Status::Corruption(
+          "Expected signed data but the merge contains unsigned");
+    } else {
+      status = Status::Corruption(
+          "Expected unsigned data but the merge contains signed");
+    }
+    return;
+  }
+
+  uint32_t n;
+  status = readVarInt32(slice, pos, n);
+  if (!status.ok()) {
+    return;
+  }
+
+  if (n == 0) {
+    status = Status::Corruption("Encountered segment with 0 elements");
+    return;
+  }
 
   switch (subFormatId) {
     case SUBFORMAT_ID_RAW:
-      parseRaw(slice, n);
+      status = parseRaw(slice, pos, n);
       break;
     case SUBFORMAT_ID_DELTAZG_FPF128_VB:
     case SUBFORMAT_ID_DELTAZG_VB:
-      parseCompressed(slice, n, subFormatId);
+      status = parseCompressed(slice, pos, n, subFormatId);
       break;
     default:
-      throw std::runtime_error("Unknown subformatId: " +
-                               std::to_string(subFormatId));
+      status = Status::Corruption("Unknown subformatId: " +
+                                std::to_string(subFormatId));
   }
 }
 
-void IntValueSegment::parseRaw(rocksdb::Slice &slice, int n) {
-  values.resize(n);
-  for (int i = 0; i < n; i++) {
-    values[i] =
-        *reinterpret_cast<const int32_t *>(slice.data() + i * sizeof(int32_t));
+rocksdb::Status IntValueSegment::parseRaw(const rocksdb::Slice &slice,
+                                          size_t &pos, size_t n) {
+  if (pos + 4 * n > slice.size()) {
+    return Status::Corruption(
+        "Cannot decode long segment: expected " + std::to_string(4 * n) +
+        " bytes and only " + std::to_string(slice.size() - pos) + " available");
   }
+
+  values.reserve(values.size() + n);
+  for (size_t i = 0; i < n; i++) {
+    values.push_back(read_u32_be_unchecked(slice, pos));
+  }
+
+  return Status::OK();
 }
 
-void IntValueSegment::parseCompressed(rocksdb::Slice &slice, int n,
-                                      int subFormatId) {
-  std::vector<int> ddz(n);
+// n is the number of values to be read
+rocksdb::Status IntValueSegment::parseCompressed(const rocksdb::Slice &slice,
+                                                 size_t &pos, size_t n,
+                                                 int subFormatId) {
+  std::vector<uint32_t> ddz(n);
 
-  IntWrapper inputOffset(0);
-  IntWrapper outputOffset(0);
-  size_t position = slice.data() - slice.data();
+  size_t pos1 = pos;
+  size_t outputlength = 0;
 
   if (subFormatId == SUBFORMAT_ID_DELTAZG_FPF128_VB) {
-    std::vector<int> x((slice.size() - (slice.data() - slice.data())) / 4);
-    for (int &i : x) {
-      i = *reinterpret_cast<const int32_t *>(slice.data() +
-                                             i * sizeof(int32_t));
+    xc.resize((slice.size() - pos) / 4);
+    for (size_t i = 0; i < xc.size(); i++) {
+      xc[i] = read_u32_be_unchecked(slice, pos);
     }
-    FastPFOR128 *fastpfor = FastPFOR128::get();
-    fastpfor->uncompress(x.data(), inputOffset, x.size(), ddz.data(),
-                         outputOffset);
-    slice = rocksdb::Slice(slice.data() + position + inputOffset.get() * 4);
+    outputlength = n;
+    auto in2 =
+        fastpfor128.decodeArray(xc.data(), xc.size(), ddz.data(), outputlength);
+    if (outputlength > n) {
+      return Status::Corruption("Encoded data longer than expected");
+    }
+    pos = pos1 + 4 * (in2 - xc.data());
   }
 
-  for (int i = outputOffset.get(); i < n; i++) {
-    ddz[i] = readVarInt32(slice);
+  for (auto i = outputlength; i < n; i++) {
+    auto s = readVarInt32(slice, pos, ddz[i]);
+    if (!s.ok()) {
+      return s;
+    }
   }
-  values = decodeDeltaDeltaZigZag(ddz);
+
+  decodeDeltaDeltaZigZag(ddz, values);
+
+  return Status::OK();
 }
 
-int IntValueSegment::getMaxSerializedSize() {
+size_t IntValueSegment::MaxSerializedSize() {
   return 5 + 4 * values.size();  // 1 for format id + 4 for the size plus 4 for
                                  // each element
 }

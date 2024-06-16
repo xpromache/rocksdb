@@ -99,6 +99,7 @@ set(JNI_NATIVE_SOURCES
         rocksjni/write_batch_with_index.cc
         rocksjni/write_buffer_manager.cc
         rocksjni/writebatchhandlerjnicallback.cc
+        rocksjni/yamcs_parchive_merge_operator.cc
 )
 
 set(JAVA_MAIN_CLASSES

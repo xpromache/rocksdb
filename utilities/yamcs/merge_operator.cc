@@ -6,12 +6,15 @@
 #include "merge_operator.h"
 
 #include <cassert>
+#include <iostream>
 #include <memory>
 
+#include "int_value_segment.h"
 #include "logging/logging.h"
 #include "rocksdb/merge_operator.h"
 #include "rocksdb/slice.h"
 #include "rocksdb/utilities/options_type.h"
+#include "util.h"
 #include "utilities/merge_operators.h"
 
 namespace ROCKSDB_NAMESPACE::yamcs {
@@ -21,6 +24,8 @@ namespace ROCKSDB_NAMESPACE::yamcs {
 bool YamcsParchiveMergeOperator::FullMergeV2(
     const MergeOperationInput& merge_in,
     MergeOperationOutput* merge_out) const {
+  printf("In FullMergeV2 new_value\n");
+
   merge_out->new_value.clear();
 
   if (merge_in.existing_value) {
@@ -35,6 +40,8 @@ bool YamcsParchiveMergeOperator::FullMergeV2(
 bool YamcsParchiveMergeOperator::PartialMergeMulti(
     const Slice& key, const std::deque<Slice>& operand_list,
     std::string* new_value, Logger* logger) const {
+  std::cout << "In PartialMergeMulti\n";
+
   // Ensure the operand_list is not empty
   if (operand_list.empty()) {
     return false;  // Or handle the error as appropriate
@@ -54,8 +61,6 @@ bool YamcsParchiveMergeOperator::MergeSlices(const Slice& key,
                                              Iterator begin, Iterator end,
                                              std::string* new_value,
                                              Logger* logger) const {
-  new_value->assign(first_value.data(), first_value.size());
-
   if (first_value.size() < 2) {
     ROCKS_LOG_ERROR(
         logger, "Short value received in the merge key: %s, value: %s",
@@ -64,30 +69,46 @@ bool YamcsParchiveMergeOperator::MergeSlices(const Slice& key,
   }
 
   uint8_t formatId = first_value.data()[0];
+  size_t pos = 1;
+  ROCKS_LOG_WARN(logger, "In MergeSlices formatId: %d", formatId);
 
   switch (formatId) {
-    case SortedTimeValueSegment:
+    case FID_SortedTimeValueSegment:
       break;
-    case ParameterStatusSegment:
+    case FID_ParameterStatusSegment:
       break;
-    case IntValueSegment:
-      break;
-    case StringValueSegment:
-      break;
-    case FloatValueSegment:
-      break;
-    case DoubleValueSegment:
-      break;
-    case LongValueSegment:
-      break;
-    case BinaryValueSegment:
-      break;
-    case BooleanValueSegment:
-      break;
-  }
+    case FID_IntValueSegment: {
+      IntValueSegment ivs(first_value, pos);
+      if (!ivs.Status().ok()) {
+        ROCKS_LOG_ERROR(logger, "Error initializing IntValueSegment: %s", ivs.Status().getState());
+        return false;
+      }
 
-  for (auto it = begin; it != end; ++it) {
-    new_value->append(it->data(), it->size());
+      for (auto it = begin; it != end; ++it) {
+        size_t pos1 = 1;
+        ivs.MergeFrom(*it, pos1);
+        if (!ivs.Status().ok()) {
+          ROCKS_LOG_ERROR(logger, "Error merging segment: %s", ivs.Status().getState());
+          return false;
+        }
+      }
+      new_value->push_back(static_cast<char>(formatId));
+
+      ivs.WriteTo(*new_value);
+      break;
+    }
+    case FID_StringValueSegment:
+      break;
+    case FID_FloatValueSegment:
+      break;
+    case FID_DoubleValueSegment:
+      break;
+    case FID_LongValueSegment:
+      break;
+    case FID_BinaryValueSegment:
+      break;
+    case FID_BooleanValueSegment:
+      break;
   }
 
   return true;

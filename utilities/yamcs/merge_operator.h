@@ -31,15 +31,15 @@ template <typename Iterator>
 bool MergeSlices(const Slice& key, const Slice& first_value, Iterator begin,
                  Iterator end, std::string* new_value, Logger* logger) const;
 
-  static const uint8_t SortedTimeValueSegment = 1;
-  static const uint8_t ParameterStatusSegment = 2;
-  static const uint8_t IntValueSegment = 11;
-  static const uint8_t StringValueSegment = 13;
-  static const uint8_t FloatValueSegment = 16;
-  static const uint8_t DoubleValueSegment = 17;
-  static const uint8_t LongValueSegment = 18;
-  static const uint8_t BinaryValueSegment = 19;
-  static const uint8_t BooleanValueSegment = 20;
+  static const uint8_t FID_SortedTimeValueSegment = 1;
+  static const uint8_t FID_ParameterStatusSegment = 2;
+  static const uint8_t FID_IntValueSegment = 11;
+  static const uint8_t FID_StringValueSegment = 13;
+  static const uint8_t FID_FloatValueSegment = 16;
+  static const uint8_t FID_DoubleValueSegment = 17;
+  static const uint8_t FID_LongValueSegment = 18;
+  static const uint8_t FID_BinaryValueSegment = 19;
+  static const uint8_t FID_BooleanValueSegment = 20;
 };
 }  // namespace yamcs
 }  // namespace ROCKSDB_NAMESPACE
