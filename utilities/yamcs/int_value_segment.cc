@@ -2,13 +2,14 @@
 
 #include <rocksdb/slice.h>
 
-#include "fastpfor/fastpfor.h"
+
 #include "util.h"
 
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
 
-static thread_local FastPForLib::FastPFor<4> fastpfor128;
+thread_local FastPForLib::FastPFor<4> fastpfor128;
+
 static thread_local std::vector<uint32_t> xc;
 
 bool get_signed(uint8_t x) { return (((x >> 4) & 1) == 1); }
@@ -26,9 +27,10 @@ void IntValueSegment::WriteTo(std::string &buf) {
     writeRaw(buf);
   }
 }
+
 void IntValueSegment::writeCompressed(std::string &buf) {
   std::vector<uint32_t> ddz = encodeDeltaDeltaZigZag(values);
-  xc.resize(3 * ddz.size()/2);
+  xc.resize(3 * ddz.size() / 2);
 
   size_t compressed_in_size =
       ddz.size() / fastpfor128.BlockSize * fastpfor128.BlockSize;
@@ -55,7 +57,7 @@ void IntValueSegment::writeCompressed(std::string &buf) {
   }
 
   for (size_t i = compressed_in_size; i < ddz.size(); i++) {
-    writeVarInt32(buf, ddz[i]);
+    write_var_u32(buf, ddz[i]);
   }
 }
 
@@ -71,11 +73,10 @@ void IntValueSegment::writeHeader(int subFormatId, std::string &buf) {
   int x = is_signed ? 1 : 0;
   x = (x << 4) | subFormatId;
   buf.push_back(static_cast<uint8_t>(x));
-  writeVarInt32(buf, values.size());
+  write_var_u32(buf, values.size());
 }
 
-void IntValueSegment::MergeFrom(const rocksdb::Slice &slice,
-                                           size_t &pos) {
+void IntValueSegment::MergeFrom(const rocksdb::Slice &slice, size_t &pos) {
   uint8_t x = slice.data()[pos++];
   int subFormatId = x & 0xF;
   if (is_signed != get_signed(x)) {
@@ -90,7 +91,7 @@ void IntValueSegment::MergeFrom(const rocksdb::Slice &slice,
   }
 
   uint32_t n;
-  status = readVarInt32(slice, pos, n);
+  status = read_var_u32(slice, pos, n);
   if (!status.ok()) {
     return;
   }
@@ -110,7 +111,7 @@ void IntValueSegment::MergeFrom(const rocksdb::Slice &slice,
       break;
     default:
       status = Status::Corruption("Unknown subformatId: " +
-                                std::to_string(subFormatId));
+                                  std::to_string(subFormatId));
   }
 }
 
@@ -154,7 +155,7 @@ rocksdb::Status IntValueSegment::parseCompressed(const rocksdb::Slice &slice,
   }
 
   for (auto i = outputlength; i < n; i++) {
-    auto s = readVarInt32(slice, pos, ddz[i]);
+    auto s = read_var_u32(slice, pos, ddz[i]);
     if (!s.ok()) {
       return s;
     }
@@ -163,11 +164,6 @@ rocksdb::Status IntValueSegment::parseCompressed(const rocksdb::Slice &slice,
   decodeDeltaDeltaZigZag(ddz, values);
 
   return Status::OK();
-}
-
-size_t IntValueSegment::MaxSerializedSize() {
-  return 5 + 4 * values.size();  // 1 for format id + 4 for the size plus 4 for
-                                 // each element
 }
 
 }  // namespace yamcs

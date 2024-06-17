@@ -5,16 +5,19 @@
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
 
-LongValueSegment::LongValueSegment(Type type)
-    : numericType(type) {}
-
-LongValueSegment::LongValueSegment() : numericType(0) {}
-
+LongValueSegment::Type get_type(uint8_t x) {
+  return (LongValueSegment::Type)(x >> 4);
+}
+LongValueSegment::LongValueSegment(const Slice& slice, size_t& pos)
+    : type(get_type(slice.data()[pos])) {
+  MergeFrom(slice, pos);
+}
 
 void LongValueSegment::WriteTo(std::string& buf) {
-  writeHeader(SUBFORMAT_ID_RAW, buf);
   int n = values.size();
-  writeVarInt32(buf, n);
+
+  writeHeader(SUBFORMAT_ID_RAW, buf);
+  write_var_u32(buf, n);
 
   for (int i = 0; i < n; i++) {
     write_u64_be(buf, values[i]);
@@ -22,44 +25,46 @@ void LongValueSegment::WriteTo(std::string& buf) {
 }
 
 void LongValueSegment::writeHeader(int subFormatId, std::string& buf) {
-  uint8_t x = (numericType << 4) | subFormatId;
+  uint8_t t = type;
+  uint8_t x = (t << 4) | subFormatId;
   buf.push_back(x);
 }
 
-rocksdb::Status LongValueSegment::MergeFrom(const rocksdb::Slice& slice,
-                                        size_t& pos) {
+void LongValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
   uint8_t x = slice.data()[pos++];
 
   int subFormatId = x & 0xF;
   if (subFormatId != SUBFORMAT_ID_RAW) {
-    return Status::Corruption("Unknown subformatId " +
-                              std::to_string(subFormatId) +
-                              " for LongValueSegment");
+    status = Status::Corruption("Unknown subformatId " +
+                                std::to_string(subFormatId) +
+                                " for LongValueSegment");
+    return;
   }
 
-  numericType = (x >> 4) & 3;
+  Type _type = get_type(x);
+  if (type != _type) {
+    status = Status::Corruption(
+        "Required to merge a segment of type " + std::to_string(_type) +
+        " to a segment of type " + std::to_string(type));
+    return;
+  }
   uint32_t n;
-  Status s = readVarInt32(slice, pos, n);
-  if (!s.ok()) {
-    return s;
+  status = read_var_u32(slice, pos, n);
+  if (!status.ok()) {
+    return;
   }
 
   if (pos + 8 * n > slice.size()) {
-    return Status::Corruption(
+    status = Status::Corruption(
         "Cannot decode long segment: expected " + std::to_string(8 * n) +
         " bytes and only " + std::to_string(slice.size() - pos) + " available");
+    return;
   }
 
   values.resize(n);
   for (size_t i = 0; i < n; i++) {
     values[i] = read_u64_be_unchecked(slice, pos);
   }
-
-  return Status::OK();
-}
-
-int LongValueSegment::getMaxSerializedSize() {
-  return 4 + 8 * values.size();  // 4 for the size plus 8 for each element
 }
 
 }  // namespace yamcs

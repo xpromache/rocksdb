@@ -6,31 +6,29 @@
 #include <cstdint>
 #include <vector>
 
+#include "boolean_array.h"
 #include "value_segment.h"
 
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
 
-class LongValueSegment : public ValueSegment {
+class BooleanValueSegment : public ValueSegment {
  public:
-  enum Type {
-    UINT64,
-    SINT64,
-    TIMESTAMP,
-  };
-  static const uint8_t SUBFORMAT_ID_RAW = 0;
+ BooleanValueSegment(const Slice& slice, size_t& pos);
 
-  LongValueSegment(const Slice& slice, size_t& pos);
   void WriteTo(std::string& slice);
   void MergeFrom(const rocksdb::Slice& slice, size_t& pos);
-  size_t MaxSerializedSize() { return 4 + 8 * values.size(); }
+  size_t MaxSerializedSize() {
+    // 4 bytes max for the segment size
+    // 4 bytes max for the long array length
+    // 8 bytes for each 64 bits, rounded up
+    return 16 + ba.size() / 8;
+  }
 
  private:
-  void writeHeader(int subFormatId, std::string& slice);
   void parseRaw(const rocksdb::Slice& slice, int n);
 
-  std::vector<int64_t> values;
-  Type type;  // index in the array
+  BooleanArray ba;
 };
 
 }  // namespace yamcs

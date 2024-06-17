@@ -6,8 +6,10 @@
 #include <string>
 #include <vector>
 
+
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
+
 
 inline int32_t decodeZigZag(uint32_t x) { return (x >> 1) ^ -(x & 1); }
 
@@ -48,7 +50,7 @@ inline void decodeDeltaDeltaZigZag(const std::vector<uint32_t>& ddz,
   }
 }
 
-inline void writeVarInt32(std::string& str, uint32_t x) {
+inline void write_var_u32(std::string& str, uint32_t x) {
   while ((x & ~0x7F) != 0) {
     str.push_back(static_cast<char>((x & 0x7F) | 0x80));
     x >>= 7;
@@ -56,7 +58,7 @@ inline void writeVarInt32(std::string& str, uint32_t x) {
   str.push_back(static_cast<char>(x & 0x7F));
 }
 
-inline void writeVarInt64(std::string& str, uint64_t x) {
+inline void write_var_u64(std::string& str, uint64_t x) {
   while ((x & ~0x7F) != 0) {
     str.push_back(static_cast<char>((x & 0x7F) | 0x80));
     x >>= 7;
@@ -64,7 +66,7 @@ inline void writeVarInt64(std::string& str, uint64_t x) {
   str.push_back(static_cast<char>(x & 0x7F));
 }
 
-inline rocksdb::Status readVarInt32(const rocksdb::Slice& slice, size_t& pos,
+inline rocksdb::Status read_var_u32(const rocksdb::Slice& slice, size_t& pos,
                                     uint32_t& result) {
   result = 0;
   int shift = 0;
@@ -80,7 +82,7 @@ inline rocksdb::Status readVarInt32(const rocksdb::Slice& slice, size_t& pos,
   return Status::Corruption("Invalid VarInt32");
 }
 
-inline rocksdb::Status readVarInt64(const rocksdb::Slice& slice, size_t& pos,
+inline rocksdb::Status read_var_u64(const rocksdb::Slice& slice, size_t& pos,
                                     uint64_t& result) {
   result = 0;
   int shift = 0;
@@ -94,13 +96,13 @@ inline rocksdb::Status readVarInt64(const rocksdb::Slice& slice, size_t& pos,
 }
 
 inline void writeSignedVarint32(std::string& str, int32_t x) {
-  writeVarInt32(str, encodeZigZag(x));
+  write_var_u32(str, encodeZigZag(x));
 }
 
 inline rocksdb::Status readSignedVarInt32(const rocksdb::Slice& slice,
                                           size_t& pos, int32_t& result) {
   uint32_t v;
-  Status s = readVarInt32(slice, pos, v);
+  Status s = read_var_u32(slice, pos, v);
   if (s.ok()) {
     result = decodeZigZag(v);
   }
@@ -119,6 +121,12 @@ inline void write_u64_be(std::string& buf, uint64_t x) {
 }
 
 inline void write_u32_be(std::string& buf, uint32_t x) {
+  x = htobe32(x);
+  const char* data = reinterpret_cast<const char*>(&x);
+  buf.append(data, sizeof(x));
+}
+
+inline void write_f32_be(std::string& buf, float x) {
   x = htobe32(x);
   const char* data = reinterpret_cast<const char*>(&x);
   buf.append(data, sizeof(x));

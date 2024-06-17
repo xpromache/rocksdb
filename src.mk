@@ -328,7 +328,6 @@ LIB_SOURCES =                                                   \
   utilities/write_batch_with_index/write_batch_with_index.cc    \
   utilities/write_batch_with_index/write_batch_with_index_internal.cc    \
   utilities/yamcs/fastpfor/bitpacking.cc                        \
-  utilities/yamcs/util.cc                                       \
   utilities/yamcs/int_value_segment.cc                          \
   utilities/yamcs/long_value_segment.cc                         \
   utilities/yamcs/merge_operator.cc                             \

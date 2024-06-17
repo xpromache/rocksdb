@@ -5,15 +5,22 @@
 
 #include "merge_operator.h"
 
+#include <rocksdb/merge_operator.h>
+#include <rocksdb/slice.h>
+#include <rocksdb/utilities/options_type.h>
+
 #include <cassert>
 #include <iostream>
 #include <memory>
+#include "logging/logging.h"
 
 #include "int_value_segment.h"
-#include "logging/logging.h"
-#include "rocksdb/merge_operator.h"
-#include "rocksdb/slice.h"
-#include "rocksdb/utilities/options_type.h"
+#include "long_value_segment.h"
+#include "float_value_segment.h"
+#include "double_value_segment.h"
+#include "boolean_value_segment.h"
+#include "object_segment.h"
+
 #include "util.h"
 #include "utilities/merge_operators.h"
 
@@ -72,46 +79,61 @@ bool YamcsParchiveMergeOperator::MergeSlices(const Slice& key,
   size_t pos = 1;
   ROCKS_LOG_WARN(logger, "In MergeSlices formatId: %d", formatId);
 
+  std::unique_ptr<ValueSegment> segment;
+
   switch (formatId) {
-    case FID_SortedTimeValueSegment:
-      break;
-    case FID_ParameterStatusSegment:
-      break;
-    case FID_IntValueSegment: {
-      IntValueSegment ivs(first_value, pos);
-      if (!ivs.Status().ok()) {
-        ROCKS_LOG_ERROR(logger, "Error initializing IntValueSegment: %s", ivs.Status().getState());
-        return false;
-      }
-
-      for (auto it = begin; it != end; ++it) {
-        size_t pos1 = 1;
-        ivs.MergeFrom(*it, pos1);
-        if (!ivs.Status().ok()) {
-          ROCKS_LOG_ERROR(logger, "Error merging segment: %s", ivs.Status().getState());
-          return false;
-        }
-      }
-      new_value->push_back(static_cast<char>(formatId));
-
-      ivs.WriteTo(*new_value);
-      break;
-    }
+    case FID_ParameterStatusSegment:  // intentional pass through
+    case FID_BinaryValueSegment:      // intentional pass through
     case FID_StringValueSegment:
+      segment = std::make_unique<ObjectSegment>(first_value, pos);
+      break;
+    case FID_SortedTimeValueSegment:  // intentional pass through
+    case FID_IntValueSegment:
+      segment = std::make_unique<IntValueSegment>(first_value, pos);
       break;
     case FID_FloatValueSegment:
+      segment = std::make_unique<FloatValueSegment>(first_value, pos);
       break;
     case FID_DoubleValueSegment:
+      segment = std::make_unique<DoubleValueSegment>(first_value, pos);
       break;
     case FID_LongValueSegment:
-      break;
-    case FID_BinaryValueSegment:
+      segment = std::make_unique<LongValueSegment>(first_value, pos);
       break;
     case FID_BooleanValueSegment:
+      segment = std::make_unique<BooleanValueSegment>(first_value, pos);
       break;
   }
 
-  return true;
+  if (segment) {
+    if (!segment->Status().ok()) {
+      ROCKS_LOG_ERROR(logger,
+                      "Error initializing ValueSegment for format %d: %s",
+                      formatId, segment->Status().getState());
+      return false;
+    }
+
+    for (auto it = begin; it != end; ++it) {
+      size_t pos1 = 1;
+      segment->MergeFrom(*it, pos1);
+      if (!segment->Status().ok()) {
+        ROCKS_LOG_ERROR(logger, "Error merging segment for format %d: %s",
+                        formatId, segment->Status().getState());
+        return false;
+      }
+    }
+
+    new_value->push_back(static_cast<char>(formatId));
+    new_value->reserve(segment->MaxSerializedSize());
+
+    segment->WriteTo(*new_value);
+    return true;
+  } else {
+    ROCKS_LOG_ERROR(
+        logger, "Segment merger for segments with format %d not implemented",
+        formatId);
+    return false;
+  }
 }
 
 }  // namespace ROCKSDB_NAMESPACE::yamcs
