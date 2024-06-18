@@ -963,7 +963,16 @@ set(SOURCES
         utilities/ttl/db_ttl_impl.cc
         utilities/wal_filter.cc
         utilities/write_batch_with_index/write_batch_with_index.cc
-        utilities/write_batch_with_index/write_batch_with_index_internal.cc)
+        utilities/write_batch_with_index/write_batch_with_index_internal.cc
+        utilities/yamcs/fastpfor/bitpacking.cc
+        utilities/yamcs/boolean_value_segment.cc
+        utilities/yamcs/double_value_segment.cc
+        utilities/yamcs/float_value_segment.cc
+        utilities/yamcs/int_value_segment.cc
+        utilities/yamcs/long_value_segment.cc
+        utilities/yamcs/object_segment.cc
+        utilities/yamcs/merge_operator.cc
+        utilities/yamcs/util.cc)
 
 list(APPEND SOURCES
   utilities/transactions/lock/range/range_tree/lib/locktree/concurrent_tree.cc
