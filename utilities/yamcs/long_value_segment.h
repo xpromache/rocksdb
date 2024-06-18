@@ -26,7 +26,7 @@ class LongValueSegment : public ValueSegment {
   size_t MaxSerializedSize() { return 4 + 8 * values.size(); }
 
  private:
-  void writeHeader(int subFormatId, std::string& slice);
+  void writeHeader(uint8_t subFormatId, std::string& slice);
   void parseRaw(const rocksdb::Slice& slice, int n);
 
   std::vector<int64_t> values;

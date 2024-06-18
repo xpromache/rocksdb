@@ -40,17 +40,14 @@ void ObjectSegment::WriteTo(std::string& buf) {
 void ObjectSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
   uint8_t x = slice.data()[pos++];
 
-  int newSliceFid = x & 0xF;
-  printf("at the MergeFrom start having %ld values\n", values.size());
+  int newSliceFid = x & 0xF;  
   if (newSliceFid == SUBFORMAT_ID_RAW) {
     mergeRaw(slice, pos);
   } else if (newSliceFid == SUBFORMAT_ID_ENUM_RLE) {
     mergeRleEnum(slice, pos);
   } else {
     mergeNonRleEnum(newSliceFid, slice, pos);
-  }
-
-  printf("at the MergeFrom end having %ld values\n", values.size());
+  }  
 }
 
 // this is called in case the chunk to be merged is in raw format
@@ -145,7 +142,7 @@ void ObjectSegment::mergeRleEnum(const rocksdb::Slice& slice, size_t& pos) {
             std::to_string(idx));
         return;
       }
-      rle_values[i] = mappings[idx];
+      rle_values[i] = (uint32_t) mappings[idx];
     }
   } else {
     auto mappings = AddEnumValues(tmp_values);
@@ -160,7 +157,7 @@ void ObjectSegment::mergeRleEnum(const rocksdb::Slice& slice, size_t& pos) {
         return;
       }
       for (size_t j = 0; j < count; j++) {
-        values_idx.push_back(mappings[idx]);
+        values_idx.push_back((uint32_t) mappings[idx]);
       }
     }
   }
@@ -176,22 +173,17 @@ void ObjectSegment::mergeNonRleEnum(int newSliceFid,
   }
   std::vector<uint32_t> tmp_values_idx;
   status = parse_values_idx(newSliceFid, slice, pos, tmp_values_idx,
-                            tmp_values.size());
+                            (uint32_t) tmp_values.size());
   if (!status.ok()) {
     return;
   }
 
-  if (this->formatId == SUBFORMAT_ID_RAW) {
-    printf(" aici object store 100 tmp_values_idx.size: %ld values.size: %ld\n",
-           tmp_values_idx.size(), values.size());
+  if (this->formatId == SUBFORMAT_ID_RAW) {    
     for (auto idx : tmp_values_idx) {
       values.push_back(tmp_values[idx]);
     }
-    printf(" aici object store 101 tmp_values_idx.size: %ld values.size: %ld\n",
-           tmp_values_idx.size(), values.size());
-
-  } else if (this->formatId == SUBFORMAT_ID_ENUM_RLE) {
-    printf(" aici object store 200\n");
+    
+  } else if (this->formatId == SUBFORMAT_ID_ENUM_RLE) {    
     // merge nonRLE enum to RLE enum
     auto mappings = AddEnumValues(tmp_values);
     for (auto idx : tmp_values_idx) {
@@ -203,12 +195,11 @@ void ObjectSegment::mergeNonRleEnum(int newSliceFid,
         rle_counts.push_back(1);
       }
     }
-  } else {
-    printf(" aici object store 300\n");
+  } else {    
     // merge nonRLE enum to non RLE enum
     auto mappings = AddEnumValues(tmp_values);
     for (auto idx : tmp_values_idx) {
-      values_idx.push_back(mappings[idx]);
+      values_idx.push_back((uint32_t) mappings[idx]);
     }
   }
 }
@@ -325,9 +316,7 @@ static Status parse_values_idx(int formatId, const rocksdb::Slice& slice,
     return status;
   }
 
-  printf("in ObjectSegment parse_values_idx, parsed: %ld values\n",
-         values_idx.size());
-
+  
   for (auto v : values_idx) {
     // check that the indices are not out of range (with respect to the values
     // that have been previously read from the slice)
@@ -336,8 +325,7 @@ static Status parse_values_idx(int formatId, const rocksdb::Slice& slice,
                                 " larger than the maximum number of values " +
                                 std::to_string(max_idx));
     }
-  }
-  printf("bumbalumba\n");
+  }  
   return Status::OK();
 }
 

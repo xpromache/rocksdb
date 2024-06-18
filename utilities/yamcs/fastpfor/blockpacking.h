@@ -287,6 +287,10 @@ public:
   const uint32_t *decodeArray(const uint32_t *in, const size_t length,
                               uint32_t *out, size_t &nvalue) {
     const uint32_t actuallength = *in++;
+    if (actuallength > length) {
+      throw std::logic_error("actuallength > length: "+std::to_string(actuallength)+" > "+std::to_string(length));
+    }
+    
     const uint8_t *inbyte = reinterpret_cast<const uint8_t *>(in);
     const uint32_t *const initout(out);
 

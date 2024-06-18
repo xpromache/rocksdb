@@ -14,17 +14,17 @@ LongValueSegment::LongValueSegment(const Slice& slice, size_t& pos)
 }
 
 void LongValueSegment::WriteTo(std::string& buf) {
-  int n = values.size();
+  uint32_t n = (uint32_t) values.size();
 
   writeHeader(SUBFORMAT_ID_RAW, buf);
   write_var_u32(buf, n);
 
-  for (int i = 0; i < n; i++) {
-    write_u64_be(buf, values[i]);
+  for (auto v: values) {
+    write_u64_be(buf, v);
   }
 }
 
-void LongValueSegment::writeHeader(int subFormatId, std::string& buf) {
+void LongValueSegment::writeHeader(uint8_t subFormatId, std::string& buf) {
   uint8_t t = type;
   uint8_t x = (t << 4) | subFormatId;
   buf.push_back(x);

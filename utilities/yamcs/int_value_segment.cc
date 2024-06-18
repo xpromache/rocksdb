@@ -10,7 +10,7 @@ namespace yamcs {
 
 static bool get_signed(uint8_t x) { return (((x >> 4) & 1) == 1); }
 
-static uint8_t header(bool is_signed, int subFormatId) {
+static uint8_t header(bool is_signed, uint8_t subFormatId) {
   uint8_t x = is_signed ? 1 : 0;
   return (x << 4) | subFormatId;
 }
@@ -36,7 +36,7 @@ void IntValueSegment::writeCompressed(std::string &buf) {
 
   bool with_fastpfor = write_vec_u32_compressed(buf, ddz);
   if (!with_fastpfor) {
-    buf[pos] = (header(is_signed, SUBFORMAT_ID_DELTAZG_VB));
+    buf[pos] = header(is_signed, SUBFORMAT_ID_DELTAZG_VB);
   }
 }
 
@@ -51,7 +51,7 @@ void IntValueSegment::writeRaw(std::string &buf) {
 
 void IntValueSegment::MergeFrom(const rocksdb::Slice &slice, size_t &pos) {
   uint8_t x = slice.data()[pos++];
-  int subFormatId = x & 0xF;
+  uint8_t subFormatId = x & 0xF;
   if (is_signed != get_signed(x)) {
     if (is_signed) {
       status = Status::Corruption(

@@ -14,7 +14,11 @@ static thread_local std::vector<uint32_t> xc;
 bool write_vec_u32_compressed(std::string& buf,
                               std::vector<uint32_t>& values_idx) {
   bool with_fastpfor;
-  write_var_u32(buf, values_idx.size());
+  if (values_idx.size() > INT32_MAX) {
+    throw std::overflow_error("Vector size exceeds maximum length limit");
+  }
+
+  write_var_u32(buf, (uint32_t)values_idx.size());
   xc.resize(3 * values_idx.size() / 2);
 
   size_t compressed_in_size =

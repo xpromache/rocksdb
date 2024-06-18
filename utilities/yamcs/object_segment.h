@@ -39,7 +39,7 @@ class ObjectSegment : public ValueSegment {
 
   // initialized at construction time, all the merged segment are adapted to
   // this
-  const int formatId;
+  const uint8_t formatId;
   // used in all cases but for enums it stores only the unique values
   std::vector<std::string_view> values;
 
