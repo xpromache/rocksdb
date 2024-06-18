@@ -38,8 +38,8 @@ inline void float_compress(const std::vector<float>& fa, std::string& buffer) {
       // When XOR is non-zero, calculate the number of leading and trailing
       // zeros in the XOR, store bit ‘1’ followed by either a) or b):
       bw.write(1, 1);
-      int lz = __builtin_clz(xorValue);
-      int tz = __builtin_ctz(xorValue);
+      int lz = clz(xorValue);
+      int tz = ctz(xorValue);
       if ((lz >= prevLz) && (tz >= prevTz) && (lz < prevLz + 7)) {
         // (a) (Control bit ‘0’) If the block of meaningful bits falls within
         // the block of previous meaningful bits, i.e., there are at least as

@@ -12,29 +12,29 @@ thread_local FastPForLib::FastPFor<4> fastpfor128;
 static thread_local std::vector<uint32_t> xc;
 
 bool write_vec_u32_compressed(std::string& buf,
-                              std::vector<uint32_t>& values_idx) {
-  bool with_fastpfor;
-  if (values_idx.size() > INT32_MAX) {
+                              std::vector<uint32_t>& values) {
+  bool with_fastpfor = false;
+  if (values.size() > INT32_MAX) {
     throw std::overflow_error("Vector size exceeds maximum length limit");
   }
 
-  write_var_u32(buf, (uint32_t)values_idx.size());
-  xc.resize(3 * values_idx.size() / 2);
+  write_var_u32(buf, (uint32_t)values.size());
+  xc.resize(3 * values.size() / 2);
 
   size_t compressed_in_size =
-      values_idx.size() / fastpfor128.BlockSize * fastpfor128.BlockSize;
+      values.size() / fastpfor128.BlockSize * fastpfor128.BlockSize;
 
   size_t compressed_out_size = xc.size();
 
   if (compressed_in_size > 0) {
-    fastpfor128.encodeArray(values_idx.data(), values_idx.size(), xc.data(),
+    fastpfor128.encodeArray(values.data(), values.size(), xc.data(),
                             compressed_out_size);
-    if (compressed_out_size < values_idx.size()) {
+    if (compressed_out_size < values.size()) {
       with_fastpfor = true;
     }
   }
 
-  if (compressed_in_size == 0 || compressed_out_size >= xc.size()) {
+  if (compressed_in_size == 0 || compressed_out_size >= values.size()) {
     // no compression could be done (too few data points)
     // or compression resulted in data larger than the original
     with_fastpfor = false;
@@ -45,8 +45,8 @@ bool write_vec_u32_compressed(std::string& buf,
     write_u32_be(buf, xc[i]);
   }
 
-  for (size_t i = compressed_in_size; i < values_idx.size(); i++) {
-    write_var_u32(buf, values_idx[i]);
+  for (size_t i = compressed_in_size; i < values.size(); i++) {
+    write_var_u32(buf, values[i]);
   }
   return with_fastpfor;
 }

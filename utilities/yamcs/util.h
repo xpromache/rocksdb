@@ -226,5 +226,28 @@ bool write_vec_u32_compressed(std::string& buf,
 
 Status read_vec_u32_compressed(bool with_fprof, const rocksdb::Slice& slice,
                                size_t& pos, std::vector<uint32_t>& values_idx);
+
+
+#ifdef _MSC_VER
+#include <intrin.h>
+#pragma intrinsic(_BitScanReverse)
+#pragma intrinsic(_BitScanForward)
+
+inline int clz(uint32_t x) {
+    unsigned long index;
+    _BitScanReverse(&index, x);
+    return 31 - index;
+}
+
+inline int ctz(uint32_t x) {
+    unsigned long index;
+    _BitScanForward(&index, x);
+    return index;
+}
+#else
+#define clz(x) __builtin_clz(x)
+#define ctz(x) __builtin_ctz(x)
+#endif
+
 }  // namespace yamcs
 }  // namespace ROCKSDB_NAMESPACE

@@ -14,18 +14,18 @@ LongValueSegment::LongValueSegment(const Slice& slice, size_t& pos)
 }
 
 void LongValueSegment::WriteTo(std::string& buf) {
-  uint32_t n = (uint32_t) values.size();
+  uint32_t n = (uint32_t)values.size();
 
   writeHeader(SUBFORMAT_ID_RAW, buf);
   write_var_u32(buf, n);
 
-  for (auto v: values) {
+  for (auto v : values) {
     write_u64_be(buf, v);
   }
 }
 
 void LongValueSegment::writeHeader(uint8_t subFormatId, std::string& buf) {
-  uint8_t t = type;
+  uint8_t t = static_cast<uint8_t>(type);
   uint8_t x = (t << 4) | subFormatId;
   buf.push_back(x);
 }
@@ -54,11 +54,11 @@ void LongValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
     return;
   }
 
-  if ((values.size() + (size_t) n) > INT32_MAX) {
+  if ((values.size() + (size_t)n) > INT32_MAX) {
     status = Status::CompactionTooLarge("resulting segment would be too large");
     return;
   }
-  
+
   if (pos + 8 * n > slice.size()) {
     status = Status::Corruption(
         "Cannot decode long segment: expected " + std::to_string(8 * n) +
@@ -66,7 +66,7 @@ void LongValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
     return;
   }
 
-  values.reserve(values.size()+n);
+  values.reserve(values.size() + n);
   for (size_t i = 0; i < n; i++) {
     values.push_back(read_u64_be_unchecked(slice, pos));
   }
