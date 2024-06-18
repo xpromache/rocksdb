@@ -1,4 +1,4 @@
-name: facebook/rocksdb/pr-jobs
+name: rocksdbjni
 on: [push, pull_request]
 jobs:
   # ======================== Windows ======================= #
@@ -19,7 +19,7 @@ jobs:
          if-no-files-found: ignore
   # ============================ Java Jobs ============================ #
   build-linux-java-static:
-    if: false
+  #  if: false
     runs-on: ubuntu-latest
     container:
       image: evolvedbinary/rocksjava:centos6_x64-be
@@ -47,7 +47,7 @@ jobs:
     - uses: "./.github/actions/post-steps"
   build-linux-arm:
     if: false
-    runs-on: ubuntu-arm #not supported on github as of 14-June-2024
+    runs-on: ubuntu-arm # support to be added for open-source projects at the end of 2024
     steps:
         - uses: actions/checkout@v4.1.0
         - uses: "./.github/actions/pre-steps"

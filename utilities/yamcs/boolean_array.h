@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <span>
 #include <stdexcept>
 #include <vector>
 
