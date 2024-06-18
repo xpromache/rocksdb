@@ -9,13 +9,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: "./.github/actions/pre-steps"
+    - uses: actions/setup-java@v4
+      with:
+         distribution: 'temurin'
+         java-version: '11'
     - name: Set Java Environment
       run: |-
         echo "JAVA_HOME=${JAVA_HOME}"
         which java && java -version
         which javac && javac -version
     - name: Build RocksDBJava Static Library
-      run: scl enable devtoolset-7 'make V=1 J=8 -j8 rocksdbjavastatic'
+      run: make V=1 J=8 -j8 rocksdbjavastatic
     - uses: actions/upload-artifact@v4
       with:
          name: linux-amd64
