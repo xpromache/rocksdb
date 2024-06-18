@@ -5,10 +5,7 @@ jobs:
   
   build-linux-amd64:
   #  if: false
-    runs-on: ubuntu-latest
-    container:
-      image: evolvedbinary/rocksjava:centos7_x64-be
-      options: --shm-size=16gb
+    runs-on: ubuntu-22
     steps:
     - uses: actions/checkout@v4
     - uses: "./.github/actions/pre-steps"
