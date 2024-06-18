@@ -42,10 +42,10 @@ void IntValueSegment::writeCompressed(std::string &buf) {
 
 void IntValueSegment::writeRaw(std::string &buf) {
   buf.push_back(header(is_signed, SUBFORMAT_ID_RAW));
-  write_var_u32(buf, values.size());
-  int n = values.size();
-  for (int i = 0; i < n; i++) {
-    write_u32_be(buf, values[i]);
+  write_var_u32(buf, (uint32_t) values.size());
+  
+  for (auto v: values) {
+    write_u32_be(buf, v);
   }
 }
 

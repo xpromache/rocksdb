@@ -36,7 +36,7 @@ void ObjectSegment::WriteTo(std::string& buf) {
   }
 }
 
-//TODO check the max size overflow
+// TODO check the max size overflow
 void ObjectSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
   uint8_t x = slice.data()[pos++];
 
@@ -66,7 +66,7 @@ void ObjectSegment::mergeRaw(const rocksdb::Slice& slice, size_t& pos) {
     if (!status.ok()) {
       return;
     }
-    uint32_t idx;
+    size_t idx;
     if (this->formatId == SUBFORMAT_ID_ENUM_RLE) {
       for (auto v : tmp_values) {
         auto it = valueIndexMap.find(v);
@@ -80,7 +80,7 @@ void ObjectSegment::mergeRaw(const rocksdb::Slice& slice, size_t& pos) {
         if (!rle_values.empty() && rle_values.back() == idx) {
           rle_counts.back() += 1;
         } else {
-          rle_values.push_back(idx);
+          rle_values.push_back((uint32_t) idx);
           rle_counts.push_back(1);
         }
       }
@@ -94,7 +94,7 @@ void ObjectSegment::mergeRaw(const rocksdb::Slice& slice, size_t& pos) {
           values.push_back(v);
           valueIndexMap[v] = idx;
         }
-        values_idx.push_back(idx);
+        values_idx.push_back((uint32_t)idx);
       }
     }
   }
@@ -175,8 +175,8 @@ void ObjectSegment::mergeNonRleEnum(int newSliceFid,
     return;
   }
   std::vector<uint32_t> tmp_values_idx;
-  status ==
-      parse_values_idx(newSliceFid, slice, pos, tmp_values_idx, tmp_values.size());
+  status = parse_values_idx(newSliceFid, slice, pos, tmp_values_idx,
+                            tmp_values.size());
   if (!status.ok()) {
     return;
   }
@@ -199,7 +199,7 @@ void ObjectSegment::mergeNonRleEnum(int newSliceFid,
       if (!rle_values.empty() && rle_values.back() == mapped_idx) {
         rle_counts.back() += 1;
       } else {
-        rle_values.push_back(mapped_idx);
+        rle_values.push_back((uint32_t) mapped_idx);
         rle_counts.push_back(1);
       }
     }
@@ -268,9 +268,9 @@ static Status parse_values(const rocksdb::Slice& slice, size_t& pos,
 
 static void write_values(std::string& buf,
                          std::vector<std::string_view> values) {
-  write_var_u32(buf, values.size());
+  write_var_u32(buf, (uint32_t) values.size());
   for (auto v : values) {
-    write_var_u32(buf, v.size());
+    write_var_u32(buf, (uint32_t) v.size());
     buf.append(v);
   }
 }
@@ -305,7 +305,7 @@ static Status parse_rles(const rocksdb::Slice& slice, size_t& pos,
 static void write_rles(std::string& buf, std::vector<uint32_t>& rle_counts,
                        std::vector<uint32_t>& rle_values) {
   assert(rle_counts.size() == rle_values.size());
-  write_var_u32(buf, rle_counts.size());
+  write_var_u32(buf, (uint32_t) rle_counts.size());
   for (auto v : rle_counts) {
     write_var_u32(buf, v);
   }
