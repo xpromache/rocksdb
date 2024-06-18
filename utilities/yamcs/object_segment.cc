@@ -36,6 +36,7 @@ void ObjectSegment::WriteTo(std::string& buf) {
   }
 }
 
+//TODO check the max size overflow
 void ObjectSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
   uint8_t x = slice.data()[pos++];
 

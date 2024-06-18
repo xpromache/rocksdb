@@ -9,12 +9,12 @@ DoubleValueSegment::DoubleValueSegment(const Slice& slice, size_t& pos) {
   MergeFrom(slice, pos);
 }
 void DoubleValueSegment::WriteTo(std::string& buf) {
-  int n = values.size();
+  size_t n = values.size();
 
   buf.push_back(SUBFORMAT_ID_RAW);
-  write_var_u32(buf, n);
+  write_var_u32(buf, (uint32_t) n);
 
-  for (int i = 0; i < n; i++) {
+  for (size_t i = 0; i < n; i++) {
     write_f64_be(buf, values[i]);
   }
 }
@@ -33,6 +33,10 @@ void DoubleValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
   uint32_t n;
   status = read_var_u32(slice, pos, n);
   if (!status.ok()) {
+    return;
+  }
+  if ((values.size() + (size_t) n) > INT32_MAX) {
+    status = Status::CompactionTooLarge("resulting segment would be too large");
     return;
   }
 

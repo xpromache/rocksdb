@@ -22,7 +22,7 @@ void FloatValueSegment::WriteTo(std::string& buf) {
 
 void FloatValueSegment::writeRaw(std::string& buf) {
   buf.push_back(SUBFORMAT_ID_RAW);
-  write_var_u32(buf, values.size());
+  write_var_u32(buf, (uint32_t)values.size());
   for (float v : values) {
     write_f32_be(buf, v);
   }
@@ -30,7 +30,7 @@ void FloatValueSegment::writeRaw(std::string& buf) {
 
 void FloatValueSegment::writeCompressed(std::string& buf) {
   buf.push_back(SUBFORMAT_ID_COMPRESSED);
-  write_var_u32(buf, values.size());
+  write_var_u32(buf, (uint32_t)values.size());
   float_compress(values, buf);
 }
 
@@ -41,6 +41,11 @@ void FloatValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
   uint32_t n;
   status = read_var_u32(slice, pos, n);
   if (!status.ok()) {
+    return;
+  }
+
+  if ((values.size() + (size_t)n) > INT32_MAX) {
+    status = Status::CompactionTooLarge("resulting segment would be too large");
     return;
   }
 

@@ -54,6 +54,11 @@ void LongValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
     return;
   }
 
+  if ((values.size() + (size_t) n) > INT32_MAX) {
+    status = Status::CompactionTooLarge("resulting segment would be too large");
+    return;
+  }
+  
   if (pos + 8 * n > slice.size()) {
     status = Status::Corruption(
         "Cannot decode long segment: expected " + std::to_string(8 * n) +

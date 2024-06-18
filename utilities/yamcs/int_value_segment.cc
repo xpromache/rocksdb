@@ -10,7 +10,6 @@ namespace yamcs {
 
 static bool get_signed(uint8_t x) { return (((x >> 4) & 1) == 1); }
 
-
 static uint8_t header(bool is_signed, int subFormatId) {
   uint8_t x = is_signed ? 1 : 0;
   return (x << 4) | subFormatId;
@@ -34,7 +33,7 @@ void IntValueSegment::writeCompressed(std::string &buf) {
   buf.push_back(header(is_signed, SUBFORMAT_ID_DELTAZG_FPF128_VB));
 
   std::vector<uint32_t> ddz = encodeDeltaDeltaZigZag(values);
-  
+
   bool with_fastpfor = write_vec_u32_compressed(buf, ddz);
   if (!with_fastpfor) {
     buf[pos] = (header(is_signed, SUBFORMAT_ID_DELTAZG_VB));
@@ -50,7 +49,6 @@ void IntValueSegment::writeRaw(std::string &buf) {
   }
 }
 
-
 void IntValueSegment::MergeFrom(const rocksdb::Slice &slice, size_t &pos) {
   uint8_t x = slice.data()[pos++];
   int subFormatId = x & 0xF;
@@ -65,6 +63,19 @@ void IntValueSegment::MergeFrom(const rocksdb::Slice &slice, size_t &pos) {
     return;
   }
 
+  auto pos1 = pos;
+  uint32_t n;
+  status = read_var_u32(slice, pos, n);
+  if (!status.ok()) {
+    return;
+  }
+
+  if ((values.size() + (size_t)n) > INT32_MAX) {
+    status = Status::CompactionTooLarge("resulting segment would be too large");
+    return;
+  }
+
+  pos = pos1;
   switch (subFormatId) {
     case SUBFORMAT_ID_RAW:
       parseRaw(slice, pos);
