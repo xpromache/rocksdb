@@ -19,7 +19,7 @@ jobs:
         which java && java -version
         which javac && javac -version
     - name: Build RocksDBJava Static Library
-      run: make V=1 J=8 -j8 rocksdbjavastatic
+      run: make V=1 J=4 -j4 rocksdbjavastatic
     - uses: actions/upload-artifact@v4
       with:
          name: linux-amd64
@@ -72,11 +72,11 @@ jobs:
         which java && java -version
         which javac && javac -version
     - name: Build RocksDBJava x86 and ARM Static Libraries
-      run: make V=1 J=16 -j16 rocksdbjavastaticosx
+      run: make V=1 J=4 -j4 rocksdbjavastaticosx
     - uses: actions/upload-artifact@v4
       with:
          name: macosx
-         path: java/target/rocsdbjni*.jnilib
+         path: java/target/rocksdbjni*.jnilib
   
   # ======================== Final JAR assembly ======================= #
   package:
