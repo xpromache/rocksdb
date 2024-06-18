@@ -5,29 +5,31 @@
 #include <vector>
 
 #include "bit_reader_writer.h"
+#include "util.h"
 
+namespace ROCKSDB_NAMESPACE {
+namespace yamcs {
 /**
  * Implements the floating point compression scheme described here:
  * http://www.vldb.org/pvldb/vol8/p1816-teller.pdf
  *
  */
-
 /**
- * compress the first n elements from the array of floats into the ByteBuffer
+ * compress the floats into the buffer
  */
 inline void float_compress(const std::vector<float>& fa, std::string& buffer) {
   BitWriter bw(buffer);
 
-  int xorValue;
-  int prevV = *reinterpret_cast<const int*>(&fa[0]);
+  uint32_t xorValue;
+  uint32_t prevV = f32_to_u32_bits(fa[0]);
   bw.write(prevV, 32);
 
   int prevLz = 100;  // such that the first comparison lz>=prevLz will fail
   int prevTz = 0;
 
   auto n = fa.size();
-  for (int i = 1; i < n; i++) {
-    int v = *reinterpret_cast<const int*>(&fa[i]);
+  for (size_t i = 1; i < n; i++) {
+    uint32_t v = f32_to_u32_bits(fa[i]);
     xorValue = v ^ prevV;
     // If XOR with the previous is zero (same value), store single ‘0’ bit
     if (xorValue == 0) {
@@ -66,48 +68,53 @@ inline void float_compress(const std::vector<float>& fa, std::string& buffer) {
   bw.flush();
 }
 
-rocksdb::Status float_decompress(const rocksdb::Slice& slice, size_t& pos, Vector<float>& out) {
-    BitReader br(slice, pos); // Initialize BitReader with slice and pos
-    int xorValue;
-    int v = static_cast<int>(br.read(32));
-    out.resize(1);
-    out[0] = *reinterpret_cast<float*>(&v);
+/// decompress n floats from slice at the given position into the out vector.
+/// The pos is updated with the bytes read. if there is an error the status
+/// return will not not ok and the position will be undefined.
+rocksdb::Status float_decompress(const rocksdb::Slice& slice, size_t& pos,
+                                 const size_t n, std::vector<float>& out) {
+  out.reserve(out.size() + n);
+  BitReader br((const unsigned char*)(slice.data() + pos),
+               slice.size() - pos);  // Initialize BitReader with slice and pos
+  int xorValue;
+  uint32_t v = br.read(32);
 
-    int lz = 0;  // leading zeros
-    int tz = 0;  // trailing zeros
-    int mb = 0;  // meaningful bits
+  out.push_back(u32_bits_to_f32(v));
 
-    for (size_t i = 1; i < out.size(); i++) {
-        int bit = br.read(1);
-        if (bit == 0) {
-            // same with the previous value
-            out[i] = out[i - 1];
-        } else {
-            bit = br.read(1);
-            if (bit == 0) {
-                // the block of meaningful bits falls within the block of previous
-                // meaningful bits,
-                xorValue = br.read(mb) << tz;
-                v = xorValue ^ v;
-            } else {
-                lz = br.read(5);
-                mb = br.read(5);
-                // this happens when mb is 32 and overflows the 5 bits
-                if (mb == 0) mb = 32;
-                tz = 32 - lz - mb;
-                xorValue = br.read(mb) << tz;
-                v = xorValue ^ v;
-            }
-            out[i] = *reinterpret_cast<float*>(&v);
-        }
+  int lz = 0;  // leading zeros
+  int tz = 0;  // trailing zeros
+  int mb = 0;  // meaningful bits
+
+  for (size_t i = 1; i < n; i++) {
+    int bit = br.read(1);
+    if (bit == 0) {
+      // same with the previous value
+      out[i] = out[i - 1];
+    } else {
+      bit = br.read(1);
+      if (bit == 0) {
+        // the block of meaningful bits falls within the block of previous
+        // meaningful bits,
+        xorValue = br.read(mb) << tz;
+        v = xorValue ^ v;
+      } else {
+        lz = br.read(5);
+        mb = br.read(5);
+        // this happens when mb is 32 and overflows the 5 bits
+        if (mb == 0) mb = 32;
+        tz = 32 - lz - mb;
+        xorValue = br.read(mb) << tz;
+        v = xorValue ^ v;
+      }
+      out.push_back(u32_bits_to_f32(v));
     }
+  }
 
-    // Update pos to reflect the number of bytes read from the slice
-    pos += br.getBytePosition();
+  pos += br.getBytePosition();
 
-    return rocksdb::Status::OK(); // Return OK status assuming no errors
+  return rocksdb::Status::OK();
 }
 
-static void compress(const std::vector<float>& fa, std::string& buffer) {
-  compress(fa, fa.size(), buffer);
-}
+
+}  // namespace yamcs
+}  // namespace ROCKSDB_NAMESPACE

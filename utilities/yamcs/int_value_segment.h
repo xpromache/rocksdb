@@ -7,12 +7,9 @@
 #include <vector>
 
 #include "value_segment.h"
-#include "fastpfor/fastpfor.h"
 
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
-
-extern thread_local FastPForLib::FastPFor<4> fastpfor128;
 
 class IntValueSegment : public ValueSegment {
  public:
@@ -32,11 +29,10 @@ class IntValueSegment : public ValueSegment {
   IntValueSegment();
   void writeCompressed(std::string &buf);
   void writeRaw(std::string &slice);
-  void writeHeader(int subFormatId, std::string &slice);
-
-  rocksdb::Status parseRaw(const rocksdb::Slice &slice, size_t &pos, size_t n);
-  rocksdb::Status parseCompressed(const rocksdb::Slice &slice, size_t &pos,
-                                  size_t n, int subFormatId);
+ 
+  void parseRaw(const rocksdb::Slice &slice, size_t &pos);
+  void parseCompressed(const rocksdb::Slice &slice, size_t &pos,
+                                  int subFormatId);
 
   // static thread_local FastPForLib::SIMDFastPFor<4> fastpfor128;
 };

@@ -1,17 +1,18 @@
 #include "double_value_segment.h"
+
 #include "util.h"
 
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
 
-DoubleValueSegment::DoubleValueSegment(const Slice &slice, size_t &pos) {
+DoubleValueSegment::DoubleValueSegment(const Slice& slice, size_t& pos) {
   MergeFrom(slice, pos);
 }
 void DoubleValueSegment::WriteTo(std::string& buf) {
   int n = values.size();
 
   buf.push_back(SUBFORMAT_ID_RAW);
-  writeVarInt32(buf, n);
+  write_var_u32(buf, n);
 
   for (int i = 0; i < n; i++) {
     write_f64_be(buf, values[i]);
@@ -29,9 +30,8 @@ void DoubleValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
     return;
   }
 
-  numericType = (x >> 4) & 3;
   uint32_t n;
-  status = readVarInt32(slice, pos, n);
+  status = read_var_u32(slice, pos, n);
   if (!status.ok()) {
     return;
   }
@@ -43,7 +43,7 @@ void DoubleValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
     return;
   }
 
-  values.reserve(n);
+  values.reserve(values.size() + n);
   for (size_t i = 0; i < n; i++) {
     values.push_back(read_f64_be_unchecked(slice, pos));
   }

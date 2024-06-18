@@ -23,7 +23,7 @@ class BooleanArray {
     ensureCapacity(length + 1);
 
     if (pos < length) {  // shift all bits to the right
-      int idxpos = _idx(pos);
+      int idxpos = pos/64;
       uint64_t u = a[idxpos];
       uint64_t co = u >> 63;
       uint64_t mask = -1L >> pos;
@@ -31,7 +31,7 @@ class BooleanArray {
       u &= ~mask;
       a[idxpos] = (v << 1) | u;
 
-      int idxlast = 1 + _idx(length + 1);
+      int idxlast = 1 + (length + 1)/64;
       for (int i = idxpos + 1; i < idxlast; i++) {
         uint64_t t = a[i] >> 63;
         a[i] = co | (a[i] << 1);
@@ -55,11 +55,11 @@ class BooleanArray {
     int startBit = length % 64;
     int idxPos = length / 64;
 
+    printf("in boolean array bpush_back idxPos: %d, value: %ld, size: %d startBit: %d\n", idxPos, value, size, startBit);
     if (startBit == 0) {
       // If we are at the start of a new long, just set the value
       a[idxPos] =
           value & ((1L << size) - 1);  // Mask to include only the relevant bits
-
     } else {
       // Otherwise, split the value across the current long and the next one
       a[idxPos] |= (value & ((1L << size) - 1)) << startBit;
@@ -73,14 +73,14 @@ class BooleanArray {
   std::pair<const uint64_t*, const uint64_t*> toLongArray() const {
     // Assuming idx(length) is a valid function and length is a valid member
     const uint64_t* start = a.data();
-    const uint64_t* end = a.data() + _idx(length) + 1;
+    const uint64_t* end = a.data() + length/64 + 1;
     return {start, end};
   }
 
   bool get(int pos) const {
     rangeCheck(pos);
-    int idx = _idx(pos);
-    return (a[idx] & (1L << pos)) != 0;
+    int idx = pos/64;
+    return (a[idx] & (1L << (pos % 64))) != 0;
   }
 
   int size() const { return length; }
@@ -94,23 +94,22 @@ class BooleanArray {
     }
     length++;
   }
-
- private:
   size_t length = 0;
   std::vector<uint64_t> a;
 
+ private:
   void set(int pos) {
-    int idx = _idx(pos);
-    a[idx] |= (1L << pos);
+    int idx = pos/64;
+    a[idx] |= (1L << (pos % 64));
   }
 
   void clear(int pos) {
-    int idx = _idx(pos);
-    a[idx] &= ~(1L << pos);
+    int idx = pos/64;
+    a[idx] &= ~(1L << (pos % 64));
   }
 
   void ensureCapacity(int minBitCapacity) {
-    size_t minCapacity = _idx(minBitCapacity) + 1;
+    size_t minCapacity = minBitCapacity/64 + 1;
     if (minCapacity <= a.size()) {
       return;
     }
@@ -124,8 +123,6 @@ class BooleanArray {
 
     a.resize(newCapacity);
   }
-
-  static inline int _idx(int pos) { return pos >> 6; }
 
   void rangeCheck(size_t pos) const {
     if (pos >= length)

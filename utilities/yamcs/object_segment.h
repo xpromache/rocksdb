@@ -31,8 +31,15 @@ class ObjectSegment : public ValueSegment {
   void parseEnum(const rocksdb::Slice& slice, size_t& pos);
   void parseEnumRle(const rocksdb::Slice& slice, size_t& pos);
   void parseEnumNonRle(const rocksdb::Slice& slice, size_t& pos);
+  void mergeRleEnum(const rocksdb::Slice& slice, size_t& pos);
+  void mergeNonRleEnum(int newSliceFid, const rocksdb::Slice& slice,
+                       size_t& pos);
+  std::unordered_map<size_t, size_t> AddEnumValues(
+      const std::vector<std::string_view>& tmp_values);
 
-  int formatId;
+  // initialized at construction time, all the merged segment are adapted to
+  // this
+  const int formatId;
   // used in all cases but for enums it stores only the unique values
   std::vector<std::string_view> values;
 

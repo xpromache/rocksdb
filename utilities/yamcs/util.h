@@ -6,14 +6,36 @@
 #include <string>
 #include <vector>
 
-
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
-
 
 inline int32_t decodeZigZag(uint32_t x) { return (x >> 1) ^ -(x & 1); }
 
 inline uint32_t encodeZigZag(int32_t x) { return (x << 1) ^ (x >> 31); }
+
+inline float u32_bits_to_f32(uint32_t bits) {
+  float value;
+  std::memcpy(&value, &bits, sizeof(value));
+  return value;
+}
+
+inline double u64_bits_to_f64(uint64_t bits) {
+  double value;
+  std::memcpy(&value, &bits, sizeof(value));
+  return value;
+}
+
+static uint32_t f32_to_u32_bits(float value) {
+  uint32_t bits;
+  std::memcpy(&bits, &value, sizeof(bits));
+  return bits;
+}
+
+static uint64_t f64_to_u64_bits(double value) {
+  uint64_t bits;
+  std::memcpy(&bits, &value, sizeof(bits));
+  return bits;
+}
 
 // Encode delta of deltas with ZigZag encoding
 inline std::vector<uint32_t> encodeDeltaDeltaZigZag(
@@ -127,19 +149,21 @@ inline void write_u32_be(std::string& buf, uint32_t x) {
 }
 
 inline void write_f32_be(std::string& buf, float x) {
-  x = htobe32(x);
-  const char* data = reinterpret_cast<const char*>(&x);
-  buf.append(data, sizeof(x));
+  uint32_t data = htobe32(f32_to_u32_bits(x));
+
+  buf.append(reinterpret_cast<const char*>(&data), sizeof(data));
+}
+
+inline void write_f64_be(std::string& buf, double x) {
+  uint64_t data = htobe64(f64_to_u64_bits(x));
+
+  buf.append(reinterpret_cast<const char*>(&data), sizeof(data));
 }
 
 inline uint32_t read_u32_be_unchecked(const rocksdb::Slice& slice,
                                       size_t& pos) {
-  const uint8_t* data = reinterpret_cast<const uint8_t*>(slice.data() + pos);
-  uint32_t value = 0;
-
-  for (size_t i = 0; i < sizeof(uint32_t); ++i) {
-    value = (value << 8) | data[i];
-  }
+  const uint32_t* data = reinterpret_cast<const uint32_t*>(slice.data() + pos);
+  uint32_t value = be32toh(*data);
 
   pos += sizeof(uint32_t);
 
@@ -148,14 +172,29 @@ inline uint32_t read_u32_be_unchecked(const rocksdb::Slice& slice,
 
 inline uint64_t read_u64_be_unchecked(const rocksdb::Slice& slice,
                                       size_t& pos) {
-  const uint8_t* data = reinterpret_cast<const uint8_t*>(slice.data() + pos);
-  uint64_t value = 0;
-
-  for (size_t i = 0; i < sizeof(uint64_t); ++i) {
-    value = (value << 8) | data[i];
-  }
+  const uint64_t* data = reinterpret_cast<const uint64_t*>(slice.data() + pos);
+  uint64_t value = be64toh(*data);
 
   pos += sizeof(uint64_t);
+
+  return value;
+}
+
+inline double read_f64_be_unchecked(const rocksdb::Slice& slice, size_t& pos) {
+  uint64_t data;
+  std::memcpy(&data, slice.data() + pos, sizeof(data));
+
+  double value = u64_bits_to_f64(be64toh(data));
+  pos += sizeof(uint64_t);
+
+  return value;
+}
+
+inline float read_f32_be_unchecked(const rocksdb::Slice& slice, size_t& pos) {
+  uint32_t data;
+  std::memcpy(&data, slice.data() + pos, sizeof(data));
+  float value = u32_bits_to_f32(be32toh(data));
+  pos += sizeof(uint32_t);
 
   return value;
 }
@@ -177,5 +216,10 @@ inline rocksdb::Status read_u64_be(rocksdb::Slice& slice, size_t& pos,
   return Status::OK();
 }
 
+bool write_vec_u32_compressed(std::string& buf,
+                              std::vector<uint32_t>& values_idx);
+
+Status read_vec_u32_compressed(bool with_fprof, const rocksdb::Slice& slice,
+                               size_t& pos, std::vector<uint32_t>& values_idx);
 }  // namespace yamcs
 }  // namespace ROCKSDB_NAMESPACE

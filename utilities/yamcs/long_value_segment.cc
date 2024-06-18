@@ -61,9 +61,9 @@ void LongValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
     return;
   }
 
-  values.resize(n);
+  values.reserve(values.size()+n);
   for (size_t i = 0; i < n; i++) {
-    values[i] = read_u64_be_unchecked(slice, pos);
+    values.push_back(read_u64_be_unchecked(slice, pos));
   }
 }
 

@@ -6,16 +6,15 @@
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
 
-FloatValueSegment::FloatValueSegment(const Slice &slice, size_t &pos) {
+FloatValueSegment::FloatValueSegment(const Slice& slice, size_t& pos) {
   MergeFrom(slice, pos);
 }
-
 
 void FloatValueSegment::WriteTo(std::string& buf) {
   size_t buf_pos = buf.size();
 
   writeCompressed(buf);
-  if (buf.size() > buf_pos + values.size() * 4) {
+  if (buf.size() > 4 + buf_pos + values.size() * 4) {
     buf.resize(buf_pos);
     writeRaw(buf);
   }
@@ -23,14 +22,15 @@ void FloatValueSegment::WriteTo(std::string& buf) {
 
 void FloatValueSegment::writeRaw(std::string& buf) {
   buf.push_back(SUBFORMAT_ID_RAW);
-  int n = values.size();
-  for (int i = 0; i < n; i++) {
-    write_f32_be(buf, values[i]);
+  write_var_u32(buf, values.size());
+  for (float v : values) {
+    write_f32_be(buf, v);
   }
 }
 
 void FloatValueSegment::writeCompressed(std::string& buf) {
   buf.push_back(SUBFORMAT_ID_COMPRESSED);
+  write_var_u32(buf, values.size());
   float_compress(values, buf);
 }
 
@@ -39,7 +39,7 @@ void FloatValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
 
   int subFormatId = x & 0xF;
   uint32_t n;
-  status = readVarInt32(slice, pos, n);
+  status = read_var_u32(slice, pos, n);
   if (!status.ok()) {
     return;
   }
@@ -57,13 +57,18 @@ void FloatValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
       values.push_back(read_f32_be_unchecked(slice, pos));
     }
   } else if (subFormatId == SUBFORMAT_ID_COMPRESSED) {
-    status = float_decompress(slice, pos, values);
+    status = float_decompress(slice, pos, n, values);
   } else {
     status = Status::Corruption("Unknown subformatId " +
                                 std::to_string(subFormatId) +
                                 " for FloatValueSegment");
   }
 
+  printf("after FloatValueSegment merge: values: [");
+  for (auto v : values) {
+    printf(",%f ", v);
+  }
+  printf("]\n");
 }
 
 }  // namespace yamcs

@@ -5,11 +5,22 @@
 namespace ROCKSDB_NAMESPACE {
 namespace yamcs {
 
-Status parse_values(const int n, const rocksdb::Slice& slice, size_t& pos,
-                    Vec<std::string_view>& values);
+static void write_values(std::string& buf,
+                         std::vector<std::string_view> values);
 
+static void write_rles(std::string& buf, std::vector<uint32_t>& rle_counts,
+                       std::vector<uint32_t>& rle_values);
 
-ObjectSegment::ObjectSegment(const Slice &slice, size_t &pos)
+static Status parse_values(const rocksdb::Slice& slice, size_t& pos,
+                           std::vector<std::string_view>& values);
+static Status parse_values_idx(int formatId, const rocksdb::Slice& slice,
+                               size_t& pos, std::vector<uint32_t>& values_idx,
+                               uint32_t max_idx);
+static Status parse_rles(const rocksdb::Slice& slice, size_t& pos,
+                         std::vector<uint32_t>& rle_counts,
+                         std::vector<uint32_t>& rle_values);
+
+ObjectSegment::ObjectSegment(const Slice& slice, size_t& pos)
     : formatId(slice.data()[pos] & 0x0f) {
   MergeFrom(slice, pos);
 }
@@ -19,6 +30,9 @@ void ObjectSegment::WriteTo(std::string& buf) {
   write_values(buf, values);
   if (formatId == SUBFORMAT_ID_ENUM_RLE) {
     write_rles(buf, rle_counts, rle_values);
+  } else if (formatId == SUBFORMAT_ID_ENUM_FPROF ||
+             formatId == SUBFORMAT_ID_ENUM_VB) {
+    write_vec_u32_compressed(buf, values_idx);
   }
 }
 
@@ -26,7 +40,7 @@ void ObjectSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
   uint8_t x = slice.data()[pos++];
 
   int newSliceFid = x & 0xF;
-
+  printf("at the MergeFrom start having %ld values\n", values.size());
   if (newSliceFid == SUBFORMAT_ID_RAW) {
     mergeRaw(slice, pos);
   } else if (newSliceFid == SUBFORMAT_ID_ENUM_RLE) {
@@ -34,6 +48,8 @@ void ObjectSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
   } else {
     mergeNonRleEnum(newSliceFid, slice, pos);
   }
+
+  printf("at the MergeFrom end having %ld values\n", values.size());
 }
 
 // this is called in case the chunk to be merged is in raw format
@@ -44,21 +60,23 @@ void ObjectSegment::mergeRaw(const rocksdb::Slice& slice, size_t& pos) {
   } else {
     // this is one of the enum types, read the values into a temporary vector
     // and update the counters
-    Vec<std::string_view> tmp_values;
+    std::vector<std::string_view> tmp_values;
     status = parse_values(slice, pos, tmp_values);
     if (!status.ok()) {
       return;
     }
+    uint32_t idx;
     if (this->formatId == SUBFORMAT_ID_ENUM_RLE) {
-      for (v : tmp_values) {
+      for (auto v : tmp_values) {
         auto it = valueIndexMap.find(v);
         if (it != valueIndexMap.end()) {
           idx = it->second;
         } else {
           idx = values.size();
-          valueIndexMap[value] = idx;
+          values.push_back(v);
+          valueIndexMap[v] = idx;
         }
-        if (!rle_values.is_empty() && rle_values.back() == idx) {
+        if (!rle_values.empty() && rle_values.back() == idx) {
           rle_counts.back() += 1;
         } else {
           rle_values.push_back(idx);
@@ -66,13 +84,14 @@ void ObjectSegment::mergeRaw(const rocksdb::Slice& slice, size_t& pos) {
         }
       }
     } else {
-      for (v : tmp_values) {
+      for (auto v : tmp_values) {
         auto it = valueIndexMap.find(v);
         if (it != valueIndexMap.end()) {
           idx = it->second;
         } else {
           idx = values.size();
-          valueIndexMap[value] = idx;
+          values.push_back(v);
+          valueIndexMap[v] = idx;
         }
         values_idx.push_back(idx);
       }
@@ -82,12 +101,12 @@ void ObjectSegment::mergeRaw(const rocksdb::Slice& slice, size_t& pos) {
 
 // new slice is RLE enum
 void ObjectSegment::mergeRleEnum(const rocksdb::Slice& slice, size_t& pos) {
-  Vec<std::string_view> tmp_values;
+  std::vector<std::string_view> tmp_values;
   status = parse_values(slice, pos, tmp_values);
   if (!status.ok()) {
     return;
   }
-  if (this->subFormatId != SUBFORMAT_ID_ENUM_RLE) {
+  if (this->formatId != SUBFORMAT_ID_ENUM_RLE) {
     rle_counts.clear();
     rle_values.clear();
   }
@@ -98,8 +117,8 @@ void ObjectSegment::mergeRleEnum(const rocksdb::Slice& slice, size_t& pos) {
   if (!status.ok()) {
     return;
   }
-  if (this->subFormatId == SUBFORMAT_ID_RAW) {
-    for (int i = 0; i < rle_counts.size(); i++) {
+  if (this->formatId == SUBFORMAT_ID_RAW) {
+    for (size_t i = 0; i < rle_counts.size(); i++) {
       auto count = rle_counts[i];
       auto idx = rle_values[i];
       if (idx >= tmp_values.size()) {
@@ -108,9 +127,11 @@ void ObjectSegment::mergeRleEnum(const rocksdb::Slice& slice, size_t& pos) {
             std::to_string(idx));
         return;
       }
-      values.push_back(tmp_values[idx]);
+      for (size_t j = 0; j < count; j++) {
+        values.push_back(tmp_values[idx]);
+      }
     }
-  } else if (this->subFormatId == SUBFORMAT_ID_ENUM_RLE) {
+  } else if (this->formatId == SUBFORMAT_ID_ENUM_RLE) {
     // merging RLE enum to RLE enum,
     // add all the unique values to the map and adjust the new rle_values with
     // the new indices rle_counts stay the same
@@ -128,7 +149,7 @@ void ObjectSegment::mergeRleEnum(const rocksdb::Slice& slice, size_t& pos) {
   } else {
     auto mappings = AddEnumValues(tmp_values);
     /// merging RLE enum to non RLE enum
-    for (int i = 0; i < rle_counts.size(); i++) {
+    for (size_t i = 0; i < rle_counts.size(); i++) {
       auto count = rle_counts[i];
       auto idx = rle_values[i];
       if (idx >= tmp_values.size()) {
@@ -137,7 +158,7 @@ void ObjectSegment::mergeRleEnum(const rocksdb::Slice& slice, size_t& pos) {
             std::to_string(idx));
         return;
       }
-      for (int j = 0; j < count; j++) {
+      for (size_t j = 0; j < count; j++) {
         values_idx.push_back(mappings[idx]);
       }
     }
@@ -147,28 +168,34 @@ void ObjectSegment::mergeRleEnum(const rocksdb::Slice& slice, size_t& pos) {
 // new slice is non RLE enum
 void ObjectSegment::mergeNonRleEnum(int newSliceFid,
                                     const rocksdb::Slice& slice, size_t& pos) {
-  Vec<std::string_view> tmp_values;
+  std::vector<std::string_view> tmp_values;
   status = parse_values(slice, pos, tmp_values);
   if (!status.ok()) {
     return;
   }
-  Vec<uint32_t> tmp_values_idx;
+  std::vector<uint32_t> tmp_values_idx;
   status ==
-      parse_values_idx(newSliceFid, slice, pos, values_idx, tmp_values.size());
+      parse_values_idx(newSliceFid, slice, pos, tmp_values_idx, tmp_values.size());
   if (!status.ok()) {
     return;
   }
 
   if (this->formatId == SUBFORMAT_ID_RAW) {
+    printf(" aici object store 100 tmp_values_idx.size: %ld values.size: %ld\n",
+           tmp_values_idx.size(), values.size());
     for (auto idx : tmp_values_idx) {
       values.push_back(tmp_values[idx]);
     }
+    printf(" aici object store 101 tmp_values_idx.size: %ld values.size: %ld\n",
+           tmp_values_idx.size(), values.size());
+
   } else if (this->formatId == SUBFORMAT_ID_ENUM_RLE) {
+    printf(" aici object store 200\n");
     // merge nonRLE enum to RLE enum
     auto mappings = AddEnumValues(tmp_values);
     for (auto idx : tmp_values_idx) {
       auto mapped_idx = mappings[idx];
-      if (!rle_values.is_empty() && rle_values.back() == mapped_idx) {
+      if (!rle_values.empty() && rle_values.back() == mapped_idx) {
         rle_counts.back() += 1;
       } else {
         rle_values.push_back(mapped_idx);
@@ -176,6 +203,7 @@ void ObjectSegment::mergeNonRleEnum(int newSliceFid,
       }
     }
   } else {
+    printf(" aici object store 300\n");
     // merge nonRLE enum to non RLE enum
     auto mappings = AddEnumValues(tmp_values);
     for (auto idx : tmp_values_idx) {
@@ -206,53 +234,49 @@ std::unordered_map<size_t, size_t> ObjectSegment::AddEnumValues(
 }
 
 // reads all the values from the Slice
-Status parse_values(const rocksdb::Slice& slice, size_t& pos,
-                    Vec<std::string_view>& values) {
+static Status parse_values(const rocksdb::Slice& slice, size_t& pos,
+                           std::vector<std::string_view>& values) {
   uint32_t count;
   auto status = read_var_u32(slice, pos, count);
   if (!status.ok()) {
     return status;
   }
 
-  if (pos + 8 * count > slice.size()) {
-    status = Status::Corruption(
-        "Cannot decode long segment: expected " + std::to_string(8 * count) +
-        " bytes and only " + std::to_string(slice.size() - pos) + " available");
-    return;
-  }
   values.reserve(count);
   for (size_t i = 0; i < count; i++) {
     uint32_t str_len;
 
-    auto status = read_var_u32(slice, pos, str_len);
+    status = read_var_u32(slice, pos, str_len);
     if (!status.ok()) {
       return status;
     }
 
-    if (pos + str_len > size) {
+    if (pos + str_len > slice.size()) {
       status = Status::Corruption(
-          "Cannot decode segment: expected " + std::to_string(pos + str_len) +
-          " bytes and only " + std::to_string(size - pos) + " available");
+          "Cannot decode object segment: expected " +
+          std::to_string(pos + str_len) + " bytes and only " +
+          std::to_string(slice.size() - pos) + " available");
       return status;
     }
 
-    std::string_view value(data + pos, str_len);
-    new_values.push_back(value);
-
-    return Status::OK();
+    values.push_back(std::string_view(slice.data() + pos, str_len));
+    pos += str_len;
   }
+  return Status::OK();
 }
 
-void write_values(std::string& buf, Vec<std::string_view> values) {
+static void write_values(std::string& buf,
+                         std::vector<std::string_view> values) {
   write_var_u32(buf, values.size());
-  for (v : values) {
-    write_var_u32(buf, v.size);
+  for (auto v : values) {
+    write_var_u32(buf, v.size());
     buf.append(v);
   }
 }
 
-Status parse_rles(const rocksdb::Slice& slice, size_t& pos,
-                  Vec<uint32_t>& rle_counts, Vec<uint32_t>& rle_values) {
+static Status parse_rles(const rocksdb::Slice& slice, size_t& pos,
+                         std::vector<uint32_t>& rle_counts,
+                         std::vector<uint32_t>& rle_values) {
   uint32_t count;
   auto status = read_var_u32(slice, pos, count);
   if (!status.ok()) {
@@ -274,54 +298,36 @@ Status parse_rles(const rocksdb::Slice& slice, size_t& pos,
     }
     rle_values.push_back(v);
   }
+  return Status::OK();
 }
-void write_rles(std::string& buf, Vec<uint32_t>& rle_counts,
-                Vec<uint32_t>& rle_values) {
+
+static void write_rles(std::string& buf, std::vector<uint32_t>& rle_counts,
+                       std::vector<uint32_t>& rle_values) {
   assert(rle_counts.size() == rle_values.size());
-  write_var_u32(rle_counts.size());
-  for (v : rle_counts) {
-    write_var_u32(v);
+  write_var_u32(buf, rle_counts.size());
+  for (auto v : rle_counts) {
+    write_var_u32(buf, v);
   }
-  for (v : rle_values) {
-    write_var_u32(v);
+  for (auto v : rle_values) {
+    write_var_u32(buf, v);
   }
 }
 
-Status parse_values_idx(int formatId, const rocksdb::Slice& slice, size_t& pos,
-                        Vec<uint32_t>& values_idx, uint32_t max_idx) {
-  uint32_t n;
-  auto status = read_var_u32(slice, pos, n);
+static Status parse_values_idx(int formatId, const rocksdb::Slice& slice,
+                               size_t& pos, std::vector<uint32_t>& values_idx,
+                               uint32_t max_idx) {
+  auto status = read_vec_u32_compressed(
+      formatId == ObjectSegment::SUBFORMAT_ID_ENUM_FPROF, slice, pos,
+      values_idx);
+
   if (!status.ok()) {
     return status;
   }
 
-  values_idx.resize(n);
+  printf("in ObjectSegment parse_values_idx, parsed: %ld values\n",
+         values_idx.size());
 
-  size_t pos1 = pos;
-  size_t outputlength = 0;
-
-  if (formatId == ObjectSegment::SUBFORMAT_ID_ENUM_FPROF) {
-    xc.resize((slice.size() - pos) / 4);
-    for (size_t i = 0; i < xc.size(); i++) {
-      xc[i] = read_u32_be_unchecked(slice, pos);
-    }
-    outputlength = n;
-    auto in2 = fastpfor128.decodeArray(xc.data(), xc.size(), values_idx.data(),
-                                       outputlength);
-    if (outputlength > n) {
-      return Status::Corruption("Encoded data longer than expected");
-    }
-    pos = pos1 + 4 * (in2 - xc.data());
-  }
-
-  for (auto i = outputlength; i < n; i++) {
-    auto s = read_var_u32(slice, pos, values_idx[i]);
-    if (!s.ok()) {
-      return s;
-    }
-  }
-
-  for (v : values_idx) {
+  for (auto v : values_idx) {
     // check that the indices are not out of range (with respect to the values
     // that have been previously read from the slice)
     if (v >= max_idx) {
@@ -330,13 +336,8 @@ Status parse_values_idx(int formatId, const rocksdb::Slice& slice, size_t& pos,
                                 std::to_string(max_idx));
     }
   }
-
-  return Ok();
-}
-
-
-void write_values_idx(std::string& buf, Vec<uint32_t>& values_idx) {
-  assert(false && "TODO");
+  printf("bumbalumba\n");
+  return Status::OK();
 }
 
 }  // namespace yamcs
