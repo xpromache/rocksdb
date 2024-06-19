@@ -49,20 +49,22 @@ class BooleanArray {
     if (size > 64) {
       throw std::invalid_argument("Size must be between 0 and 64.");
     }
-
+    if (size < 64) {
+      // Mask to include only the relevant bits
+      value = value & ((1ULL << size) - 1);
+    }
     ensureCapacity(length + size);
     size_t startBit = length % 64;
     size_t idxPos = length / 64;
 
     if (startBit == 0) {
       // If we are at the start of a new long, just set the value
-      a[idxPos] =
-          value & ((1L << size) - 1);  // Mask to include only the relevant bits
+      a[idxPos] = value;
     } else {
       // Otherwise, split the value across the current long and the next one
-      a[idxPos] |= (value & ((1L << size) - 1)) << startBit;
+      a[idxPos] |= value << startBit;
       if (startBit + size > 64) {
-        a[idxPos + 1] = (value & ((1L << size) - 1)) >> (64 - startBit);
+        a[idxPos + 1] = value >> (64 - startBit);
       }
     }
     length += size;
@@ -128,7 +130,5 @@ class BooleanArray {
                               " length: " + std::to_string(length));
   }
 
-  static uint64_t mask(size_t pos) {    
-    return 1ULL << (pos % 64);
-  }
+  static uint64_t mask(size_t pos) { return 1ULL << (pos % 64); }
 };
