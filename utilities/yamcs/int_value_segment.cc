@@ -51,7 +51,7 @@ void IntValueSegment::writeRaw(std::string &buf) {
 
 void IntValueSegment::MergeFrom(const rocksdb::Slice &slice, size_t &pos) {
   uint8_t x = slice.data()[pos++];
-  uint8_t subFormatId = x & 0xF;
+  int subFormatId = x & 0xF;
   if (is_signed != get_signed(x)) {
     if (is_signed) {
       status = Status::Corruption(

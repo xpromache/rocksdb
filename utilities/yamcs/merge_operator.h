@@ -27,11 +27,12 @@ class YamcsParchiveMergeOperator : public MergeOperator {
 
   bool AllowSingleOperand() const override { return true; }
 
-template <typename Iterator>
-bool MergeSlices(const Slice& key, const Slice& first_value, Iterator begin,
-                 Iterator end, std::string* new_value, Logger* logger) const;
+  template <typename Iterator>
+  bool MergeSlices(const Slice& key, const Slice& first_value, Iterator begin,
+                   Iterator end, std::string* new_value, Logger* logger) const;
 
-  static const uint8_t FID_SortedTimeValueSegment = 1;
+  //SortedTimeValueSegmentV1 stores times relative to the segment start; it is obsolete
+  // static const uint8_t FID_SortedTimeValueSegmentV1 = 1;
   static const uint8_t FID_ParameterStatusSegment = 2;
   static const uint8_t FID_IntValueSegment = 11;
   static const uint8_t FID_StringValueSegment = 13;
@@ -40,6 +41,9 @@ bool MergeSlices(const Slice& key, const Slice& first_value, Iterator begin,
   static const uint8_t FID_LongValueSegment = 18;
   static const uint8_t FID_BinaryValueSegment = 19;
   static const uint8_t FID_BooleanValueSegment = 20;
+  //SortedTimeValueSegmentV2 stores times relative to the interval start, so they can be merged just appending the values
+  static const uint8_t FID_SortedTimeValueSegmentV2 = 21;
+  static const uint8_t FID_GapSegment = 22;
 };
 }  // namespace yamcs
 }  // namespace ROCKSDB_NAMESPACE

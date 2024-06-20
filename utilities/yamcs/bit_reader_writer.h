@@ -11,7 +11,6 @@ class BitWriter {
   int bitShift;  // bit offset from the right inside the current long
   uint64_t b;    // current element
 
-  // Helper function to perform the actual bit writing
   void doWrite(uint32_t x, int numBits) {
     bitShift -= numBits;
     uint64_t mask = (1ULL << numBits) - 1;
@@ -32,6 +31,7 @@ class BitWriter {
       if (k > 0) {
         bitShift = 64;
         write_u64_be(buffer, b);
+        b = 0;
         doWrite(x, k);
       }
     }

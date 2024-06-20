@@ -30,7 +30,7 @@ void ObjectSegment::WriteTo(std::string& buf) {
   write_values(buf, values);
   if (formatId == SUBFORMAT_ID_ENUM_RLE) {
     write_rles(buf, rle_counts, rle_values);
-  } else if (formatId == SUBFORMAT_ID_ENUM_FPROF ||
+  } else if (formatId == SUBFORMAT_ID_ENUM_FPF128 ||
              formatId == SUBFORMAT_ID_ENUM_VB) {
     write_vec_u32_compressed(buf, values_idx);
   }
@@ -309,7 +309,7 @@ static Status parse_values_idx(int formatId, const rocksdb::Slice& slice,
                                size_t& pos, std::vector<uint32_t>& values_idx,
                                uint32_t max_idx) {
   auto status = read_vec_u32_compressed(
-      formatId == ObjectSegment::SUBFORMAT_ID_ENUM_FPROF, slice, pos,
+      formatId == ObjectSegment::SUBFORMAT_ID_ENUM_FPF128, slice, pos,
       values_idx);
 
   if (!status.ok()) {

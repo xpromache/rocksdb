@@ -48,6 +48,7 @@ void FloatValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
     status = Status::CompactionTooLarge("resulting segment would be too large");
     return;
   }
+  values.reserve(values.size() + n);
 
   if (subFormatId == SUBFORMAT_ID_RAW) {
     if (pos + 4 * n > slice.size()) {
@@ -57,7 +58,7 @@ void FloatValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
                              std::to_string(slice.size() - pos) + " available");
       return;
     }
-    values.reserve(n);
+   
     for (size_t i = 0; i < n; i++) {
       values.push_back(read_f32_be_unchecked(slice, pos));
     }
@@ -68,12 +69,6 @@ void FloatValueSegment::MergeFrom(const rocksdb::Slice& slice, size_t& pos) {
                                 std::to_string(subFormatId) +
                                 " for FloatValueSegment");
   }
-
-  printf("after FloatValueSegment merge: values: [");
-  for (auto v : values) {
-    printf(",%f ", v);
-  }
-  printf("]\n");
 }
 
 }  // namespace yamcs

@@ -12,15 +12,15 @@
 #include <cassert>
 #include <iostream>
 #include <memory>
-#include "logging/logging.h"
 
-#include "int_value_segment.h"
-#include "long_value_segment.h"
-#include "float_value_segment.h"
-#include "double_value_segment.h"
 #include "boolean_value_segment.h"
+#include "double_value_segment.h"
+#include "float_value_segment.h"
+#include "gap_segment.h"
+#include "int_value_segment.h"
+#include "logging/logging.h"
+#include "long_value_segment.h"
 #include "object_segment.h"
-
 #include "util.h"
 #include "utilities/merge_operators.h"
 
@@ -31,8 +31,6 @@ namespace ROCKSDB_NAMESPACE::yamcs {
 bool YamcsParchiveMergeOperator::FullMergeV2(
     const MergeOperationInput& merge_in,
     MergeOperationOutput* merge_out) const {
-  printf("In FullMergeV2 new_value\n");
-
   merge_out->new_value.clear();
 
   if (merge_in.existing_value) {
@@ -47,8 +45,6 @@ bool YamcsParchiveMergeOperator::FullMergeV2(
 bool YamcsParchiveMergeOperator::PartialMergeMulti(
     const Slice& key, const std::deque<Slice>& operand_list,
     std::string* new_value, Logger* logger) const {
-  std::cout << "In PartialMergeMulti\n";
-
   // Ensure the operand_list is not empty
   if (operand_list.empty()) {
     return false;  // Or handle the error as appropriate
@@ -87,7 +83,7 @@ bool YamcsParchiveMergeOperator::MergeSlices(const Slice& key,
     case FID_StringValueSegment:
       segment = std::make_unique<ObjectSegment>(first_value, pos);
       break;
-    case FID_SortedTimeValueSegment:  // intentional pass through
+    case FID_SortedTimeValueSegmentV2:  // intentional pass through
     case FID_IntValueSegment:
       segment = std::make_unique<IntValueSegment>(first_value, pos);
       break;
@@ -102,6 +98,9 @@ bool YamcsParchiveMergeOperator::MergeSlices(const Slice& key,
       break;
     case FID_BooleanValueSegment:
       segment = std::make_unique<BooleanValueSegment>(first_value, pos);
+      break;
+    case FID_GapSegment:
+      segment = std::make_unique<GapSegment>(first_value, pos);
       break;
   }
 

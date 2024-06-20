@@ -335,6 +335,7 @@ LIB_SOURCES =                                                   \
   utilities/yamcs/int_value_segment.cc                          \
   utilities/yamcs/long_value_segment.cc                         \
   utilities/yamcs/object_segment.cc                             \
+  utilities/yamcs/gap_segment.cc                             \
   utilities/yamcs/merge_operator.cc                             \
   utilities/yamcs/util.cc                                       \
 

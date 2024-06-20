@@ -18,7 +18,7 @@ class ObjectSegment : public ValueSegment {
   static const uint8_t SUBFORMAT_ID_RAW = 0;
   static const uint8_t SUBFORMAT_ID_ENUM_RLE = 1;
   static const uint8_t SUBFORMAT_ID_ENUM_VB = 2;
-  static const uint8_t SUBFORMAT_ID_ENUM_FPROF = 3;
+  static const uint8_t SUBFORMAT_ID_ENUM_FPF128 = 3;
 
   ObjectSegment(const Slice& slice, size_t& pos);
   void WriteTo(std::string& slice);

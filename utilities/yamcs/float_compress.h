@@ -89,7 +89,7 @@ rocksdb::Status float_decompress(const rocksdb::Slice& slice, size_t& pos,
     int bit = br.read(1);
     if (bit == 0) {
       // same with the previous value
-      out[i] = out[i - 1];
+      out.push_back(out.back());
     } else {
       bit = br.read(1);
       if (bit == 0) {

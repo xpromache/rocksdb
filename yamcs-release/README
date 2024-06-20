@@ -1,0 +1,6 @@
+To release a new version of the rocksdb-yamcs, push the code to gitlab, then download the resulting artifact rocksdbjni-jar. Note that there are some other artifacts for the individual platform builds, those are included in the rockdbjni-jar and not required.
+
+- Unzip the rocksdbjni-jar.zip in the build directory (yamcs-release/build): unzip rocksdbjni-jar.zip -d build 
+- change the versio number in pom.xml
+- run mvn -P yamcs-release deploy. The yamcs-release profile is required to use the yamcs key for signing the jar.
+- connect to nexus oss.sonatype.org and release the jar from staging.:

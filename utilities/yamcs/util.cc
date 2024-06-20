@@ -27,9 +27,9 @@ bool write_vec_u32_compressed(std::string& buf,
   size_t compressed_out_size = xc.size();
 
   if (compressed_in_size > 0) {
-    fastpfor128.encodeArray(values.data(), values.size(), xc.data(),
+    fastpfor128.encodeArray(values.data(), compressed_in_size, xc.data(),
                             compressed_out_size);
-    if (compressed_out_size < values.size()) {
+    if (compressed_out_size < compressed_in_size) {
       with_fastpfor = true;
     }
   }
@@ -50,6 +50,7 @@ bool write_vec_u32_compressed(std::string& buf,
   }
   return with_fastpfor;
 }
+
 Status read_vec_u32_compressed(bool with_fastpfor, const rocksdb::Slice& slice,
                                size_t& pos, std::vector<uint32_t>& values) {
   uint32_t n;
