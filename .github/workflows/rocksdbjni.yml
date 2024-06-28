@@ -72,8 +72,8 @@ jobs:
           which javac && javac -version
       - name: Build RocksDBJava Static Library
         run: make V=1 J=8 -j8 rocksdbjavastatic
-      - name: Build RocksDBJava Static Library MUSL version
-        run: make V=1 J=4 -j4 rocksdbjavastaticdockerx86_64musl
+      #- name: Build RocksDBJava Static Library MUSL version
+      #  run: make V=1 J=4 -j4 rocksdbjavastaticdockerx86_64musl
       - uses: actions/upload-artifact@v4
         with:
           name: linux-arm64

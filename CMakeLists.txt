@@ -969,6 +969,7 @@ set(SOURCES
         utilities/yamcs/boolean_value_segment.cc
         utilities/yamcs/double_value_segment.cc
         utilities/yamcs/float_value_segment.cc
+        utilities/yamcs/gap_segment.cc
         utilities/yamcs/int_value_segment.cc
         utilities/yamcs/long_value_segment.cc
         utilities/yamcs/object_segment.cc
