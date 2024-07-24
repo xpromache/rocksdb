@@ -46,7 +46,7 @@ jobs:
         with:
           mode: start
           github-token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
-          ec2-image-id: ami-08f23e2d11f8d62a5
+          ec2-image-id: ami-05852c80a11603d19
           ec2-instance-type: c6g.2xlarge
           subnet-id: subnet-06ed50a4036790b26
           security-group-id: sg-0f4f777f9cc923f9a
@@ -71,7 +71,7 @@ jobs:
           which java && java -version
           which javac && javac -version
       - name: Build RocksDBJava Static Library
-        run: make V=1 J=8 -j8 rocksdbjavastatic
+        run: make V=1 J=8 -j8 SNAPPY=0 rocksdbjavastatic
       #- name: Build RocksDBJava Static Library MUSL version
       #  run: make V=1 J=4 -j4 rocksdbjavastaticdockerx86_64musl
       - uses: actions/upload-artifact@v4
