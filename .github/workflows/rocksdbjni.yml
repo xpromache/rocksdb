@@ -19,13 +19,42 @@ jobs:
         which java && java -version
         which javac && javac -version
     - name: Build RocksDBJava Static Library
-      run: PORTABLE=haswell make V=1 J=4 -j4 rocksdbjavastatic
+      run: make V=1 J=4 -j4 rocksdbjavastatic
     - name: Build RocksDBJava Static Library MUSL version
       run: make V=1 J=4 -j4 rocksdbjavastaticdockerx86_64musl
     - uses: actions/upload-artifact@v4
       with:
          name: linux-amd64
          path: java/target/**
+         retention-days: 1
+  build-linux-amd64-core2:
+    #compiles with -mcore2 for compatibility with older CPUs
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v4
+    - uses: "./.github/actions/pre-steps"
+    - uses: actions/setup-java@v4
+      with:
+         distribution: 'temurin'
+         java-version: '11'
+    - name: Set Java Environment
+      run: |-
+        echo "JAVA_HOME=${JAVA_HOME}"
+        which java && java -version
+        which javac && javac -version
+    - name: Build RocksDBJava Static Library
+      run: PORTABLE=core2 make V=1 J=4 -j4 rocksdbjavastatic
+    - name: Move .so files to core2 directory
+      run: |-
+        mkdir core2
+        mv java/target/librocksdbjni*.so core2/
+        touch dummy
+    - uses: actions/upload-artifact@v4
+      with:
+         name: linux-amd64-core2
+         path: |
+              core2
+              dummy #we need this to preserve the core2 directory
          retention-days: 1
   start-aws-runner:
     name: Start self-hosted EC2 runner
@@ -152,13 +181,18 @@ jobs:
   # ======================== Final JAR assembly ======================= #
   package:
     runs-on: ubuntu-latest
-    needs: [build-linux-amd64, build-linux-arm64, build-macosx, build-windows-amd64]
+    needs: [build-linux-amd64, build-linux-amd64-core2, build-linux-arm64, build-macosx, build-windows-amd64]
     steps:
     - uses: actions/checkout@v4
     - name: Download Linux AMD64 artifact
       uses: actions/download-artifact@v4
       with:
         name: linux-amd64
+        path: build
+    - name: Download Linux AMD64 core2 artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: linux-amd64-core2
         path: build
     - name: Download Linux ARM64 artifact
       uses: actions/download-artifact@v4
