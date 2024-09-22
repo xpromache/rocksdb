@@ -7,7 +7,7 @@
     <url>http://rocksdb.org/</url>
     <groupId>org.yamcs</groupId>
     <artifactId>yamcs-rocksdb</artifactId>
-    <version>9.4.0.5</version>
+    <version>9.4.0.10</version>
     <description>RocksDB fat jar that contains .so files for linux64, jnilib files
         for Mac OSX, and a .dll for Windows x64. It contains the Yamcs merge operator for the Parameter Archive
     </description>
